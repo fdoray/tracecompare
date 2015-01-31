@@ -1,0 +1,14 @@
+{
+  "name": "tracecompare",
+  "repo": "fdoray/tracecompare",
+  "description": "UI to compare traces",
+  "version": "1.0.0",
+  "keywords": [],
+  "main": "tracecompare.js",
+  "scripts": [
+    "tracecompare.js"
+  ],
+  "dependencies": {},
+  "development": {},
+  "license": "GPL v3"
+}

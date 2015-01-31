@@ -1,0 +1,24 @@
+{
+  "name": "tracecompare",
+  "version": "1.0.0",
+  "description": "UI to compare traces",
+  "keywords": [
+    "trace",
+    "comparison",
+    "performance"
+  ],
+  "author": {
+    "name": "Francois Doray",
+    "url": "https://github.com/fdoray"
+  },
+  "homepage": "https://github.com/fdoray/tracecompare",
+  "main": "./index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fdoray/tracecompare.git"
+  },
+  "devDependencies": {
+    "d3": "3.3",
+    "uglify-js": "2.4.0"
+  }
+}
