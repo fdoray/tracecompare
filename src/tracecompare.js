@@ -82,6 +82,9 @@ function tracecompare(path) {
       });
     });
     metricsArray.forEach(function(metric) {
+      var tmpBucketSize = (metric.max - metric.min) / kNumBuckets;
+      metric.max += tmpBucketSize;
+      metric.min -= tmpBucketSize;
       metric.bucketSize = (metric.max - metric.min) / kNumBuckets;
     });
 
@@ -116,6 +119,13 @@ function tracecompare(path) {
 
     // Create the flame graph.
     flameGraph = FlameGraph(data.stacks);
+
+    // Zoom button.
+    d3.selectAll('#zoom').on('click', function() {
+      flameGraph.UpdateCounts(groupAll[0].value(),
+                              groupAll[1].value(),
+                              true);
+    });
 
     // Render.
     RenderAll();
@@ -235,7 +245,8 @@ function tracecompare(path) {
 
     // Render flame graph.
     flameGraph.UpdateCounts(groupAll[0].value(),
-                            groupAll[1].value());
+                            groupAll[1].value(),
+                            false);
 
     // Render number of selected executions per group.
     d3.selectAll('#active-left').text(formatNumber(groupAll[0].value().total));

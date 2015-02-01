@@ -167,6 +167,13 @@ function FlameGraph(stacks)
   var kTextPadding = 5;
   var kCharacterWidth = 10;
 
+  // Scale factor.
+  var scaleFactor = 0;
+
+  // Colors.
+  var kRed = 238;
+  var kGreen = 238;
+
   // Flame graph container.
   var container = d3.selectAll('#flamegraph');
 
@@ -240,8 +247,12 @@ function FlameGraph(stacks)
   Init();
 
   // Updates the counts for each stack.
-  function UpdateCounts(leftCounts, rightCounts)
+  function UpdateCounts(leftCounts, rightCounts, updateScale)
   {
+    // Always update the scale the first time.
+    if (scaleFactor == 0)
+      updateScale = true;
+
     // Hide the flame graph if the right group is empty.
     if (rightCounts.total == 0)
     {
@@ -258,8 +269,8 @@ function FlameGraph(stacks)
     var rightInclusiveCounts = {};
     function ComputeWidth(stackId)
     {
-      var leftCount = leftCounts.samples[stackId];
-      var rightCount = rightCounts.samples[stackId];
+      var leftCount = leftCounts.samples[stackId] / leftCounts.total;
+      var rightCount = rightCounts.samples[stackId] / rightCounts.total;
 
       stacks[stackId].children.forEach(function(childStackId) {
         var counts = ComputeWidth(childStackId);
@@ -281,37 +292,68 @@ function FlameGraph(stacks)
     bottomStacks.forEach(function(stack) {
       bottomCount += rightInclusiveCounts[stack.id];
     });
-    var scaleFactor = kFlameGraphWidth / bottomCount;
 
-    // Compute the width of each stack.
+    if (!updateScale && bottomCount * scaleFactor >= kFlameGraphWidth)
+      updateScale = true;
+    if (updateScale)
+      scaleFactor = kFlameGraphWidth / bottomCount;
+
+    // Compute the width and color of each stack.
     var widths = {};
+    var colors = {};
     ForEachProperty(stacks, function(stackId) {
-      widths[stackId] = Math.floor(rightInclusiveCounts[stackId] * scaleFactor);
+      // Compute the width.
+      widths[stackId] = Math.floor(
+        rightInclusiveCounts[stackId] * scaleFactor);
+
+      // Compute the color.
+      var left = leftCounts.samples[stackId] / leftCounts.total;
+      var right = rightCounts.samples[stackId] / rightCounts.total;
+
+      // TODO: Improve this algorithm.
+      var maxColor = 20000000;
+      if (left < right)
+      {
+        // Red.
+        console.log(right - left);
+        var intensity = Math.floor(Math.min(
+          kRed, kRed * (right - left) / maxColor));
+        colors[stackId] = [kRed, kRed - intensity, kRed - intensity];
+      }
+      else
+      {
+        // Green.
+        var intensity = Math.floor(Math.min(
+          kGreen, kGreen * (left - right) / maxColor));
+        colors[stackId] = [kGreen - intensity, kGreen, kGreen - intensity];
+      }
     });
 
-    // Compute the x of the right side of each stack.
+    // Compute the x of each stack.
     var xs = {};
     function ComputeX(x, stackId)
     {
       xs[stackId] = x;
       stacks[stackId].children.forEach(function(childStackId) {
         ComputeX(x, childStackId);
-        x -= widths[childStackId];
+        x += widths[childStackId];
       });
     }
-    var x = kFlameGraphWidth;
+    var x = 0;
     bottomStacks.forEach(function(stack) {
       ComputeX(x, stack.id);
-      x -= widths[stacks];
+      x += widths[stacks];
     });
 
     // Set the width and x position of each stack.
-    var groups = container.selectAll('g.stack');
+    var groups = container.selectAll('g.stack').transition();
     groups.selectAll('text')
       .attr('x', function(stack) {
-        return xs[stack.id] - widths[stack.id] + kTextPadding; })
+        return xs[stack.id] + kTextPadding;
+      })
       .attr('width', function(stack) {
-        return widths[stack.id] - kTextPadding; })
+        return widths[stack.id] - kTextPadding;
+      })
       .text(function(stack) {
         var width = widths[stack.id];
         var numVisibleCharacters = width / kCharacterWidth;
@@ -326,8 +368,12 @@ function FlameGraph(stacks)
         return stack.f.substr(0, numVisibleCharacters) + '..';
       });
     groups.selectAll('rect')
-      .attr('x', function(stack) { return xs[stack.id] - widths[stack.id]; })
-      .attr('width', function(stack) { return widths[stack.id]; });
+      .attr('x', function(stack) { return xs[stack.id]; })
+      .attr('width', function(stack) { return widths[stack.id]; })
+      .style('fill', function(stack) {
+        var color = colors[stack.id];
+        return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+      });
   }
 
   return FlameGraph;
@@ -416,6 +462,9 @@ function tracecompare(path) {
       });
     });
     metricsArray.forEach(function(metric) {
+      var tmpBucketSize = (metric.max - metric.min) / kNumBuckets;
+      metric.max += tmpBucketSize;
+      metric.min -= tmpBucketSize;
       metric.bucketSize = (metric.max - metric.min) / kNumBuckets;
     });
 
@@ -450,6 +499,13 @@ function tracecompare(path) {
 
     // Create the flame graph.
     flameGraph = FlameGraph(data.stacks);
+
+    // Zoom button.
+    d3.selectAll('#zoom').on('click', function() {
+      flameGraph.UpdateCounts(groupAll[0].value(),
+                              groupAll[1].value(),
+                              true);
+    });
 
     // Render.
     RenderAll();
@@ -569,7 +625,8 @@ function tracecompare(path) {
 
     // Render flame graph.
     flameGraph.UpdateCounts(groupAll[0].value(),
-                            groupAll[1].value());
+                            groupAll[1].value(),
+                            false);
 
     // Render number of selected executions per group.
     d3.selectAll('#active-left').text(formatNumber(groupAll[0].value().total));
