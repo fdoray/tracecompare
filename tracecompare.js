@@ -192,7 +192,6 @@ function tracecompare(path) {
 
   // Charts.
   var chartsDict = {};
-  var charts = new Array();
 
   // Load data.
   d3.json(path, function(error, data) {
@@ -321,14 +320,13 @@ function tracecompare(path) {
             .rangeRound([0, 10 * kNumBuckets])));
     }
 
-    chartsDict[dimensionId] = charts.length;
-    charts.push({
+    chartsDict[dimensionId] = {
       id: dimensionId,
       name: dimensionProperties.name,
       charts: dimensionCharts
-    });
+    };
 
-    ShowCharts(charts);
+    ShowCharts(chartsDict);
   }
 
   // Removes a dimension.
@@ -336,8 +334,10 @@ function tracecompare(path) {
   function RemoveDimension(dimensionId)
   {
     // Remove charts.
-    charts.splice(chartsDict[dimensionId], 1);
     delete chartsDict[dimensionId];
+
+    // Remove dimension properties.
+    delete dimensionsProperties[dimensionId];
 
     for (var i = 0; i < kNumFilters; ++i)
     {
@@ -355,15 +355,18 @@ function tracecompare(path) {
     d3.selectAll('#metric-selector-' + dimensionId).style('display', null);
 
     // Update the page.
-    ShowCharts(charts);
+    ShowCharts(chartsDict);
   }
 
-  // Inserts in the page the charts from the provided array.
-  // @param charts Array of charts.
+  // Inserts in the page the charts from the provided dictionary.
+  // @param charts Dictionary of charts.
   function ShowCharts(charts)
   {
+    var chartsArray = new Array();
+    ForEachProperty(charts, function(chart) { chartsArray.push(charts[chart]); });
+
     var chartsData = d3.selectAll('#charts').selectAll('div.chart-container')
-      .data(charts, function(chart) { return chart.id; });
+      .data(chartsArray, function(chart) { return chart.id; });
     var chartsEnter = chartsData
       .enter()
       .append('div')
@@ -379,7 +382,6 @@ function tracecompare(path) {
 
     chartsData.exit().remove();
     chartsData.order();
-
   }
 
 
