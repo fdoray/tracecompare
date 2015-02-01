@@ -39,8 +39,14 @@ function tracecompare(path) {
   // Flame graph.
   var flameGraph;
 
+  // Stacks.
+  var stacks;
+
   // Load data.
   d3.json(path, function(error, data) {
+
+    // Save stacks.
+    stacks = data.stacks;
 
     // Create an artificial metric.
     // TODO: Remove this.
@@ -85,7 +91,9 @@ function tracecompare(path) {
       filters.push(crossfilter(data.executions));
       dimensions.push({});
       groups.push({});
+
       groupAll.push(filters[i].groupAll());
+      groupAll[i].reduce(ReduceAdd, ReduceRemove, ReduceInitial);
     }
 
     // Create buttons to add metric charts.
@@ -222,9 +230,16 @@ function tracecompare(path) {
   // Renders all the elements of the page.
   function RenderAll()
   {
+    // Render charts.
     d3.selectAll('div.chart').each(Render);
-    d3.selectAll('#active-left').text(formatNumber(groupAll[0].value()));
-    d3.selectAll('#active-right').text(formatNumber(groupAll[1].value()));
+
+    // Render flame graph.
+    flameGraph.UpdateCounts(groupAll[0].value(),
+                            groupAll[1].value());
+
+    // Render number of selected executions per group.
+    d3.selectAll('#active-left').text(formatNumber(groupAll[0].value().total));
+    d3.selectAll('#active-right').text(formatNumber(groupAll[1].value().total));
   }
 
   // Inserts in the page the charts from the provided dictionary.
@@ -264,6 +279,39 @@ function tracecompare(path) {
 
     // Render.
     RenderAll();
+  }
+
+  // Reduce add function.
+  function ReduceAdd(p, execution) {
+    p.total += 1;
+
+    ForEachProperty(execution.samples, function(stackId, count) {
+      p.samples[stackId] += count;
+    });
+
+    return p;
+  }
+
+  // Reduce remove function.
+  function ReduceRemove(p, execution) {
+    p.total -= 1;
+
+    ForEachProperty(execution.samples, function(stackId, count) {
+      p.samples[stackId] -= count;
+    });
+
+    return p;
+  }
+
+  // Reduce initial function.
+  function ReduceInitial() {
+    r = {total: 0, samples: {}};
+
+    ForEachProperty(stacks, function(stackId) {
+      r.samples[stackId] = 0;
+    });
+
+    return r;
   }
 
   return tracecompare;

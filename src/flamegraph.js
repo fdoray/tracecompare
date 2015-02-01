@@ -1,8 +1,15 @@
 function FlameGraph(stacks)
 {
+  var FlameGraph = {
+    UpdateCounts: UpdateCounts
+  };
+
   // Constants.
   var kTextYOffset = 15;
   var kLineHeight = 20;
+  var kFlameGraphWidth = 1516;
+  var kTextPadding = 5;
+  var kCharacterWidth = 10;
 
   // Flame graph container.
   var container = d3.selectAll('#flamegraph');
@@ -76,4 +83,96 @@ function FlameGraph(stacks)
   }
   Init();
 
+  // Updates the counts for each stack.
+  function UpdateCounts(leftCounts, rightCounts)
+  {
+    // Hide the flame graph if the right group is empty.
+    if (rightCounts.total == 0)
+    {
+      container.style('display', 'none');
+      return;
+    }
+    else
+    {
+      container.style('display', null);
+    }
+
+    // Compute inclusive count for each stack.
+    var leftInclusiveCounts = {};
+    var rightInclusiveCounts = {};
+    function ComputeWidth(stackId)
+    {
+      var leftCount = leftCounts.samples[stackId];
+      var rightCount = rightCounts.samples[stackId];
+
+      stacks[stackId].children.forEach(function(childStackId) {
+        var counts = ComputeWidth(childStackId);
+        leftCount += counts[0];
+        rightCount += counts[1];
+      });
+
+      leftInclusiveCounts[stackId] = leftCount;
+      rightInclusiveCounts[stackId] = rightCount;
+
+      return [leftCount, rightCount];
+    }
+    bottomStacks.forEach(function(stack) {
+      ComputeWidth(stack.id);
+    });
+
+    // Compute the total count for the bottom stacks.
+    var bottomCount = 0;
+    bottomStacks.forEach(function(stack) {
+      bottomCount += rightInclusiveCounts[stack.id];
+    });
+    var scaleFactor = kFlameGraphWidth / bottomCount;
+
+    // Compute the width of each stack.
+    var widths = {};
+    ForEachProperty(stacks, function(stackId) {
+      widths[stackId] = Math.floor(rightInclusiveCounts[stackId] * scaleFactor);
+    });
+
+    // Compute the x of the right side of each stack.
+    var xs = {};
+    function ComputeX(x, stackId)
+    {
+      xs[stackId] = x;
+      stacks[stackId].children.forEach(function(childStackId) {
+        ComputeX(x, childStackId);
+        x -= widths[childStackId];
+      });
+    }
+    var x = kFlameGraphWidth;
+    bottomStacks.forEach(function(stack) {
+      ComputeX(x, stack.id);
+      x -= widths[stacks];
+    });
+
+    // Set the width and x position of each stack.
+    var groups = container.selectAll('g.stack');
+    groups.selectAll('text')
+      .attr('x', function(stack) {
+        return xs[stack.id] - widths[stack.id] + kTextPadding; })
+      .attr('width', function(stack) {
+        return widths[stack.id] - kTextPadding; })
+      .text(function(stack) {
+        var width = widths[stack.id];
+        var numVisibleCharacters = width / kCharacterWidth;
+        if (stack.f.length <= numVisibleCharacters)
+          return stack.f;
+
+        if (numVisibleCharacters <= 1)
+          return '';
+        if (numVisibleCharacters == 2)
+          return stack.f.substr(0, 1) + '.';
+
+        return stack.f.substr(0, numVisibleCharacters) + '..';
+      });
+    groups.selectAll('rect')
+      .attr('x', function(stack) { return xs[stack.id] - widths[stack.id]; })
+      .attr('width', function(stack) { return widths[stack.id]; });
+  }
+
+  return FlameGraph;
 }
