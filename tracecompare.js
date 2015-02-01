@@ -162,6 +162,9 @@ function tracecompare(path) {
     CreateHistogram: CreateHistogram
   };
 
+  // Formatters.
+  var formatNumber = d3.format(",d");
+
   // Constants.
   var kMetricNames = {
     "a": "duration",
@@ -236,6 +239,8 @@ function tracecompare(path) {
       groupAll.push(filters[i].groupAll());
     }
 
+    // Show the total.
+    d3.selectAll('#total').text(formatNumber(data.executions.length));
   });
 
   // Returns the identifier of a metric.
@@ -322,9 +327,6 @@ function tracecompare(path) {
       name: dimensionProperties.name,
       histograms: dimensionHistograms
     });
-
-    yoda1 = histogramsDict;
-    yoda2 = histograms;
   }
 
   return tracecompare;
