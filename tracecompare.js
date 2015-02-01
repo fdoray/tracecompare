@@ -258,6 +258,9 @@ function tracecompare(path) {
     // Show the totals.
     d3.selectAll('#total-left').text(formatNumber(data.executions.length));
     d3.selectAll('#total-right').text(formatNumber(data.executions.length));
+
+    // Render.
+    RenderAll();
   });
 
   // Creates a dimension for the specified metric.
@@ -399,7 +402,7 @@ function tracecompare(path) {
     // Create charts.
     var chartsDivData = chartContainersEnter.selectAll('div.chart')
       .data(function(chart) { return chart.charts; });
-    var chartsDivEnter = chartsDivData
+    chartsDivData
       .enter()
       .append('div')
       .attr('class', 'chart')
