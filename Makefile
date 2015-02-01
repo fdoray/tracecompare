@@ -3,7 +3,9 @@
 all: tracecompare.min.js
 
 tracecompare.js: \
+	src/barchart.js \
 	src/tracecompare.js \
+	src/utils.js \
 	Makefile
 
 %.min.js: %.js Makefile
