@@ -255,8 +255,9 @@ function tracecompare(path) {
     });
     metricButtonsData.exit().remove();
 
-    // Show the total.
-    d3.selectAll('#total').text(formatNumber(data.executions.length));
+    // Show the totals.
+    d3.selectAll('#total-left').text(formatNumber(data.executions.length));
+    d3.selectAll('#total-right').text(formatNumber(data.executions.length));
   });
 
   // Creates a dimension for the specified metric.
@@ -369,6 +370,8 @@ function tracecompare(path) {
   function RenderAll()
   {
     d3.selectAll('div.chart').each(Render);
+    d3.selectAll('#active-left').text(formatNumber(groupAll[0].value()));
+    d3.selectAll('#active-right').text(formatNumber(groupAll[1].value()));
   }
 
   // Inserts in the page the charts from the provided dictionary.

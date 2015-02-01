@@ -23,9 +23,22 @@ a {
   cursor: pointer;
 }
 
-/* Charts */
-#charts {
+/* Charts headers */
+#charts-header {
+  margin: 0 0 3px 0;
 }
+#charts-header div {
+  display: inline-block;
+  background-color: #F0F0F0;
+  width: 610px;
+  padding: 10px;
+  text-align: center;
+}
+#charts-header-left {
+  margin-left: 253px;
+}
+
+/* Charts */
 .chart-container {
   display:block;
   margin-bottom:10px;
@@ -47,8 +60,9 @@ a {
   vertical-align: top;
   display: inline-block;
   height: 150px;
-  width: 530px;
-  padding-left:100px;
+  width: 560px;
+  margin: 0 0 0 3px;
+  padding: 0 0 0 70px;
 }
 .background.bar {
   fill: #ccc;
