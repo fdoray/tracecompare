@@ -181,7 +181,6 @@ function tracecompare(path) {
 
   // Available metrics with their min/max value.
   var metricsDict = {};
-  var metricsArray = new Array();
 
   // Filters, dimensions and groups.
   var filters = new Array();
@@ -199,10 +198,12 @@ function tracecompare(path) {
     // Create an artificial metric.
     // TODO: Remove this.
     data.executions.forEach(function(d) {
+      d['a'] = d['a'] / 1000;
       d['b'] = d['a'] * (0.5 + Math.random());
     });
 
     // Find available metrics and compute their min/max value.
+    var metricsArray = new Array();
     data.executions.forEach(function(d) {
       ForEachProperty(d, function(property) {
         if (property == 'samples')
@@ -358,6 +359,18 @@ function tracecompare(path) {
     ShowCharts(chartsDict);
   }
 
+  // Renders the specified chart.
+  function Render(method)
+  {
+    d3.select(this).call(method);
+  }
+
+  // Renders all the elements of the page.
+  function RenderAll()
+  {
+    d3.selectAll('div.chart').each(Render);
+  }
+
   // Inserts in the page the charts from the provided dictionary.
   // @param charts Dictionary of charts.
   function ShowCharts(charts)
@@ -365,25 +378,37 @@ function tracecompare(path) {
     var chartsArray = new Array();
     ForEachProperty(charts, function(chart) { chartsArray.push(charts[chart]); });
 
-    var chartsData = d3.selectAll('#charts').selectAll('div.chart-container')
+    var chartContainersData = d3.selectAll('#charts').selectAll('div.chart-container')
       .data(chartsArray, function(chart) { return chart.id; });
-    var chartsEnter = chartsData
+    var chartContainersEnter = chartContainersData
       .enter()
       .append('div')
       .attr('class', 'chart-container');
 
     // Create title.
-    var title = chartsEnter.append('div').attr('class', 'chart-title');
+    var title = chartContainersEnter.append('div').attr('class', 'chart-title');
     title.append('span').text(function(chart) { return chart.name; });
     title.append('a')
       .text('Remove')
       .attr('href', '#')
       .on('click', function(chart) { RemoveDimension(chart.id); return false; });
 
-    chartsData.exit().remove();
-    chartsData.order();
-  }
+    // Create charts.
+    var chartsDivData = chartContainersEnter.selectAll('div.chart')
+      .data(function(chart) { return chart.charts; });
+    var chartsDivEnter = chartsDivData
+      .enter()
+      .append('div')
+      .attr('class', 'chart')
+      .each(function(chart) { chart.on("brush", RenderAll).on("brushend", RenderAll); });
 
+    // Remove extra chart containers.
+    chartContainersData.exit().remove();
+    chartContainersData.order();
+
+    // Render.
+    RenderAll();
+  }
 
   return tracecompare;
 }// Iterates through the properties of an object.

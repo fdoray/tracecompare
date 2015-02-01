@@ -47,7 +47,8 @@ a {
   vertical-align: top;
   display: inline-block;
   height: 150px;
-  width: 400px;
+  width: 530px;
+  padding-left:100px;
 }
 .background.bar {
   fill: #ccc;
