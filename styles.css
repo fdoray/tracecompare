@@ -1,20 +1,53 @@
 body {
+  font-family: 'Roboto', arial, sans-serif;
+}
+a {
+  color: #ccc;
 }
 
-/* Histograms */
-#histograms {
-  padding: 10px 0;
+/* Metric selector */
+#metric-selector {
+  list-style-type: none;
+  margin: 0;
+  padding: 10px;
+
 }
-.histogram {
+#metric-selector li {
   display: inline-block;
-  height: 151px;
-  margin-bottom: 20px;
-  width: 920px;
+  padding: 5px;
+  margin-left:2px;
+  background-color: #F0F0F0;
+  border-radius: 5px;
 }
-.reset {
-  padding-left: 1em;
-  font-size: smaller;
-  color: #ccc;
+#metric-selector li:hover {
+  cursor: pointer;
+}
+
+/* Charts */
+#charts {
+}
+.chart-container {
+  display:block;
+  margin-bottom:10px;
+}
+.chart-title {
+  vertical-align: top;
+  display: inline-block;
+  height: 150px;
+  width: 250px;
+  text-align: center;
+  background-color: #F0F0F0;
+}
+.chart-title span {
+  display: block;
+  margin-top:50px;
+  font-size:1.5em;
+}
+.chart {
+  vertical-align: top;
+  display: inline-block;
+  height: 150px;
+  width: 400px;
 }
 .background.bar {
   fill: #ccc;
