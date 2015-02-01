@@ -36,6 +36,9 @@ function tracecompare(path) {
   // Charts.
   var chartsDict = {};
 
+  // Flame graph.
+  var flameGraph;
+
   // Load data.
   d3.json(path, function(error, data) {
 
@@ -102,6 +105,9 @@ function tracecompare(path) {
     // Show the totals.
     d3.selectAll('#total-left').text(formatNumber(data.executions.length));
     d3.selectAll('#total-right').text(formatNumber(data.executions.length));
+
+    // Create the flame graph.
+    flameGraph = FlameGraph(data.stacks);
 
     // Render.
     RenderAll();
@@ -226,7 +232,7 @@ function tracecompare(path) {
   function ShowCharts(charts)
   {
     var chartsArray = new Array();
-    ForEachProperty(charts, function(chart) { chartsArray.push(charts[chart]); });
+    ForEachProperty(charts, function(chartKey, chart) { chartsArray.push(chart); });
 
     var chartContainersData = d3.selectAll('#charts').selectAll('div.chart-container')
       .data(chartsArray, function(chart) { return chart.id; });

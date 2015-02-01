@@ -6,6 +6,6 @@ function ForEachProperty(obj, callback)
   for (var property in obj)
   {
     if (obj.hasOwnProperty(property))
-      callback(property);
+      callback(property, obj[property]);
   }
 }

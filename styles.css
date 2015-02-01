@@ -86,3 +86,15 @@ a {
   fill: #eee;
   stroke: #666;
 }
+
+/* Flame graph */
+svg#flamegraph {
+  margin-top:15px;
+  width: 1516px;
+  font-size: 0.9em;
+}
+
+svg#flamegraph g.stack rect {
+  fill: #EEEEEE;
+  stroke: #A3A3A3;
+}
