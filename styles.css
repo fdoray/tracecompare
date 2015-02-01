@@ -10,7 +10,7 @@ a {
   list-style-type: none;
   margin: 0;
   padding: 10px;
-
+  height: 30px;
 }
 #metric-selector li {
   display: inline-block;

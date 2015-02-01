@@ -158,7 +158,6 @@ exports.tracecompare = tracecompare;
 
 function tracecompare(path) {
   var tracecompare = {
-    CreateMetricDimension: CreateMetricDimension
   };
 
   // Formatters.
@@ -248,19 +247,23 @@ function tracecompare(path) {
       .data(metricsArray, function(metric) { return metric.id; });
     var metricButtons = metricButtonsData.enter().append('li');
     metricButtons.text(function(metric) { return metric.name; });
-    metricButtons.on('click', function(d) { CreateMetricDimension(d.id); });
-    metricButtonsData.exit().remove();;
+    metricButtons.attr('id', function(metric) {
+      return 'metric-selector-' + metric.id;
+    });
+    metricButtons.on('click', function(metric) {
+      CreateMetricDimension(metric.id);
+    });
+    metricButtonsData.exit().remove();
 
     // Show the total.
     d3.selectAll('#total').text(formatNumber(data.executions.length));
   });
 
   // Creates a dimension for the specified metric.
-  // @param metricId The identifier of the metric.
+  // @param metricId The id of the metric.
   // @returns The id of the created dimension.
   function CreateMetricDimension(metricId)
   {
-    console.log('creating dimension ' + metricId);
     var metric = metricsDict[metricId];
 
     // Check whether the dimension already exists.
@@ -286,6 +289,9 @@ function tracecompare(path) {
       min: metric.min,
       max: metric.max
     };
+
+    // Hide the button used to add this dimension.
+    d3.selectAll('#metric-selector-' + metricId).style('display', 'none');
 
     // Create the charts.
     CreateCharts(metricId);
@@ -317,10 +323,65 @@ function tracecompare(path) {
 
     chartsDict[dimensionId] = charts.length;
     charts.push({
+      id: dimensionId,
       name: dimensionProperties.name,
       charts: dimensionCharts
     });
+
+    ShowCharts(charts);
   }
+
+  // Removes a dimension.
+  // @param dimensionId The id of the dimension to remove.
+  function RemoveDimension(dimensionId)
+  {
+    // Remove charts.
+    charts.splice(chartsDict[dimensionId], 1);
+    delete chartsDict[dimensionId];
+
+    for (var i = 0; i < kNumFilters; ++i)
+    {
+      // Remove groups.
+      groups[i][dimensionId].dispose();
+      delete groups[i][dimensionId];
+
+      // Remove dimensions.
+      dimensions[i][dimensionId].dispose();
+      delete dimensions[i][dimensionId];
+    }
+
+    // Show the button that can re-enable this dimension.
+    // Note: the button only exists if its a metric dimension.
+    d3.selectAll('#metric-selector-' + dimensionId).style('display', null);
+
+    // Update the page.
+    ShowCharts(charts);
+  }
+
+  // Inserts in the page the charts from the provided array.
+  // @param charts Array of charts.
+  function ShowCharts(charts)
+  {
+    var chartsData = d3.selectAll('#charts').selectAll('div.chart-container')
+      .data(charts, function(chart) { return chart.id; });
+    var chartsEnter = chartsData
+      .enter()
+      .append('div')
+      .attr('class', 'chart-container');
+
+    // Create title.
+    var title = chartsEnter.append('div').attr('class', 'chart-title');
+    title.append('span').text(function(chart) { return chart.name; });
+    title.append('a')
+      .text('Remove')
+      .attr('href', '#')
+      .on('click', function(chart) { RemoveDimension(chart.id); return false; });
+
+    chartsData.exit().remove();
+    chartsData.order();
+
+  }
+
 
   return tracecompare;
 }// Iterates through the properties of an object.
