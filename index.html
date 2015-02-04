@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Trace Compare</title>
+<link href='http://fonts.googleapis.com/css?family=Roboto' rel='stylesheet' type='text/css'>
+<link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+
+<body>
+
+<ul id="metric-selector">
+</ul>
+
+<div id="charts-header">
+  <div id="charts-header-left">
+    Group A: <span id="active-left">-</span> of <span id="total-left">-</span> executions selected.
+  </div>
+  <div id="charts-header-right">
+    Group B: <span id="active-right">-</span> of <span id="total-right">-</span> executions selected.
+  </div>
+</div>
+
+<div id="charts">
+</div>
+
+<svg id="flamegraph">
+</svg>
+
+<div>
+  <a id="zoom" href="#">Zoom</a>
+</div>
+
+<script src="contrib/crossfilter/crossfilter.v1.js"></script>
+<script src="contrib/d3/d3.js"></script>
+<script src="tracecompare.js"></script>
+<script>
+compare = tracecompare("data/demo.json");
+</script>
+
+</body>
+
+</html>
