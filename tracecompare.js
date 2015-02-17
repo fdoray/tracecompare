@@ -315,7 +315,6 @@ function FlameGraph(stacks)
       if (left < right)
       {
         // Red.
-        console.log(right - left);
         var intensity = Math.floor(Math.min(
           kRed, kRed * (right - left) / maxColor));
         colors[stackId] = [kRed, kRed - intensity, kRed - intensity];
@@ -342,7 +341,7 @@ function FlameGraph(stacks)
     var x = 0;
     bottomStacks.forEach(function(stack) {
       ComputeX(x, stack.id);
-      x += widths[stacks];
+      x += widths[stack.id];
     });
 
     // Set the width and x position of each stack.
@@ -390,15 +389,17 @@ function tracecompare(path) {
   // Constants.
   var kMetricNames = {
     'a': 'duration',
-    'b': 'usermode',
-    'c': 'system calls',
-    'd': 'interrupted',
-    'e': 'wait-cpu',
-    'f': 'wait-blocked',
-    'g': 'timer',
-    'h': 'network',
-    'i': 'block-device',
-    'j': 'user-input'
+    'b': 'timestamp',
+    'c': 'unknown',
+    'd': 'vertical',
+    'e': 'run',
+    'f': 'interrupted',
+    'g': 'wait-cpu',
+    'h': 'wait-blocked',
+    'i': 'timer',
+    'j': 'network',
+    'k': 'block-device',
+    'l': 'user-input'
   };
   var kNumFilters = 2;
   var kNumBuckets = 50;
@@ -427,13 +428,6 @@ function tracecompare(path) {
 
     // Save stacks.
     stacks = data.stacks;
-
-    // Create an artificial metric.
-    // TODO: Remove this.
-    data.executions.forEach(function(d) {
-      d['a'] = d['a'] / 1000;
-      d['b'] = d['a'] * (0.5 + Math.random());
-    });
 
     // Find available metrics and compute their min/max value.
     var metricsArray = new Array();

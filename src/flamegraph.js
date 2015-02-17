@@ -159,7 +159,6 @@ function FlameGraph(stacks)
       if (left < right)
       {
         // Red.
-        console.log(right - left);
         var intensity = Math.floor(Math.min(
           kRed, kRed * (right - left) / maxColor));
         colors[stackId] = [kRed, kRed - intensity, kRed - intensity];
@@ -186,7 +185,7 @@ function FlameGraph(stacks)
     var x = 0;
     bottomStacks.forEach(function(stack) {
       ComputeX(x, stack.id);
-      x += widths[stacks];
+      x += widths[stack.id];
     });
 
     // Set the width and x position of each stack.

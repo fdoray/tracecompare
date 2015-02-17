@@ -10,15 +10,17 @@ function tracecompare(path) {
   // Constants.
   var kMetricNames = {
     'a': 'duration',
-    'b': 'usermode',
-    'c': 'system calls',
-    'd': 'interrupted',
-    'e': 'wait-cpu',
-    'f': 'wait-blocked',
-    'g': 'timer',
-    'h': 'network',
-    'i': 'block-device',
-    'j': 'user-input'
+    'b': 'timestamp',
+    'c': 'unknown',
+    'd': 'vertical',
+    'e': 'run',
+    'f': 'interrupted',
+    'g': 'wait-cpu',
+    'h': 'wait-blocked',
+    'i': 'timer',
+    'j': 'network',
+    'k': 'block-device',
+    'l': 'user-input'
   };
   var kNumFilters = 2;
   var kNumBuckets = 50;
@@ -47,13 +49,6 @@ function tracecompare(path) {
 
     // Save stacks.
     stacks = data.stacks;
-
-    // Create an artificial metric.
-    // TODO: Remove this.
-    data.executions.forEach(function(d) {
-      d['a'] = d['a'] / 1000;
-      d['b'] = d['a'] * (0.5 + Math.random());
-    });
 
     // Find available metrics and compute their min/max value.
     var metricsArray = new Array();
