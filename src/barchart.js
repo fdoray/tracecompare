@@ -67,6 +67,7 @@ function barChart() {
           i = -1,
           n = groups.length,
           d;
+      console.log(groups)
       while (++i < n) {
         d = groups[i];
         path.push("M", x(d.key), ",", height, "V", y(d.value), "h9V", height);

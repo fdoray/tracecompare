@@ -69,6 +69,7 @@ function barChart() {
           i = -1,
           n = groups.length,
           d;
+      console.log(groups)
       while (++i < n) {
         d = groups[i];
         path.push("M", x(d.key), ",", height, "V", y(d.value), "h9V", height);
@@ -436,6 +437,8 @@ function tracecompare(path) {
         if (property == 'samples')
           return;
 
+        d[property] = d[property] / 1000;
+
         if (metricsDict.hasOwnProperty(property))
         {
           var metric = metricsDict[property];
@@ -454,12 +457,6 @@ function tracecompare(path) {
           metricsArray.push(metric);
         }
       });
-    });
-    metricsArray.forEach(function(metric) {
-      var tmpBucketSize = (metric.max - metric.min) / kNumBuckets;
-      metric.max += tmpBucketSize;
-      metric.min -= tmpBucketSize;
-      metric.bucketSize = (metric.max - metric.min) / kNumBuckets;
     });
 
     // Create filters and empty arrays to hold dimensions and groups.
@@ -483,7 +480,7 @@ function tracecompare(path) {
       return 'metric-selector-' + metric.id;
     });
     metricButtons.on('click', function(metric) {
-      CreateMetricDimension(metric.id);
+      CreateMetricDimension(metric.id, 'linear');
     });
     metricButtonsData.exit().remove();
 
@@ -507,14 +504,39 @@ function tracecompare(path) {
 
   // Creates a dimension for the specified metric.
   // @param metricId The id of the metric.
+  // @param scaleName 'linear' or 'log'.
   // @returns The id of the created dimension.
-  function CreateMetricDimension(metricId)
+  function CreateMetricDimension(metricId, scaleName)
   {
     var metric = metricsDict[metricId];
 
     // Check whether the dimension already exists.
     if (dimensions[0].hasOwnProperty(metricId))
       return metricId;
+
+    // Compute bucket size.
+    var bucketSize, scale;
+    if (scaleName == 'linear')
+    {
+      var tmpBucketSize = (metric.max - metric.min) / kNumBuckets;
+      var chartMin = metric.min - tmpBucketSize;
+      var chartMax = metric.max + tmpBucketSize;
+      bucketSize = (chartMax - chartMin) / kNumBuckets;
+
+      scale = d3.scale.linear()
+          .domain([chartMin, chartMax])
+          .rangeRound([0, 10 * kNumBuckets]);
+    }
+    else if (scaleName == 'log')
+    {
+      chartMin = metric.min;
+      chartMax = metric.max;
+      bucketSize = (chartMax - chartMin) / kNumBuckets;
+
+      scale = d3.scale.log()
+          .domain([chartMin, chartMax])
+          .rangeRound([0, 10 * kNumBuckets]);
+    }
 
     // Create the dimension for each filter.
     for (var i = 0; i < kNumFilters; ++i)
@@ -523,8 +545,10 @@ function tracecompare(path) {
         return execution[metricId];
       });
       var group = dimension.group(function(metricValue) {
-        var bucketSize = metric.bucketSize;
-        return Math.floor(metricValue / bucketSize) * bucketSize;
+        if (scaleName == 'linear')
+          return Math.floor(metricValue / bucketSize) * bucketSize;
+        else
+          return scale.invert(Math.floor(scale(metricValue) / 10) * 10);
       });
       dimensions[i][metricId] = dimension;
       groups[i][metricId] = group;
@@ -540,14 +564,16 @@ function tracecompare(path) {
     d3.selectAll('#metric-selector-' + metricId).style('display', 'none');
 
     // Create the charts.
-    CreateCharts(metricId);
+    CreateCharts(metricId, scaleName, scale);
 
     return metricId;
   }
 
   // Creates charts for the specified dimension.
-  // @param The id of the dimension
-  function CreateCharts(dimensionId)
+  // @param dimensionId The id of the dimension
+  // @param scaleName 'linear' or 'log'.
+  // @param scale A d3 scale.
+  function CreateCharts(dimensionId, scaleName, scale)
   {
     // Check whether the chart already exists.
     if (chartsDict.hasOwnProperty(dimensionId))
@@ -562,9 +588,7 @@ function tracecompare(path) {
       dimensionCharts.push(barChart()
         .dimension(dimensions[i][dimensionId])
         .group(groups[i][dimensionId])
-        .x(d3.scale.linear()
-            .domain([dimensionProperties.min, dimensionProperties.max])
-            .rangeRound([0, 10 * kNumBuckets])));
+        .x(scale));
     }
 
     chartsDict[dimensionId] = {
@@ -573,7 +597,7 @@ function tracecompare(path) {
       charts: dimensionCharts
     };
 
-    ShowCharts(chartsDict);
+    ShowCharts(chartsDict, scaleName);
   }
 
   // Removes a dimension.
@@ -629,7 +653,8 @@ function tracecompare(path) {
 
   // Inserts in the page the charts from the provided dictionary.
   // @param charts Dictionary of charts.
-  function ShowCharts(charts)
+  // @param scaleName 'linear' or 'log'.
+  function ShowCharts(charts, scaleName)
   {
     var chartsArray = new Array();
     ForEachProperty(charts, function(chartKey, chart) { chartsArray.push(chart); });
@@ -647,7 +672,22 @@ function tracecompare(path) {
     title.append('a')
       .text('Remove')
       .attr('href', '#')
-      .on('click', function(chart) { RemoveDimension(chart.id); return false; });
+      .on('click', function(chart) { RemoveDimension(chart.id); });
+    title.append('a')
+      .text(function() {
+        if (scaleName == 'log')
+          return 'Linear';
+        else
+          return 'Log';
+      })
+      .attr('href', '#')
+      .on('click', function(chart) {
+        RemoveDimension(chart.id);
+        if (scaleName == 'linear')
+          CreateMetricDimension(chart.id, 'log');
+        else
+          CreateMetricDimension(chart.id, 'linear');
+      });
 
     // Create charts.
     var chartsDivData = chartContainersEnter.selectAll('div.chart')
