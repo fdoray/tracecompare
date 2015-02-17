@@ -69,7 +69,6 @@ function barChart() {
           i = -1,
           n = groups.length,
           d;
-      console.log(groups)
       while (++i < n) {
         d = groups[i];
         path.push("M", x(d.key), ",", height, "V", y(d.value), "h9V", height);
@@ -373,6 +372,11 @@ function FlameGraph(stacks)
       .style('fill', function(stack) {
         var color = colors[stack.id];
         return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+      })
+      .attr('class', function(stack) {
+        if (widths[stack.id] == 0)
+          return 'invisible';
+        return '';
       });
   }
 

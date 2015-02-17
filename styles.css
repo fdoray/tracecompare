@@ -102,3 +102,7 @@ svg#flamegraph g.stack rect {
   fill: #EEEEEE;
   stroke: #D6D6D6;
 }
+
+svg#flamegraph g.stack rect.invisible {
+  display:none;
+}

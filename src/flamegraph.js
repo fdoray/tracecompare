@@ -216,6 +216,11 @@ function FlameGraph(stacks)
       .style('fill', function(stack) {
         var color = colors[stack.id];
         return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+      })
+      .attr('class', function(stack) {
+        if (widths[stack.id] == 0)
+          return 'invisible';
+        return '';
       });
   }
 
