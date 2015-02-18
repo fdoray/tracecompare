@@ -154,7 +154,7 @@ function barChart() {
   };
   return d3.rebind(chart, brush, "on");
 }
-function FlameGraph(stacks)
+function FlameGraph(stacks, createstackdimensionfn)
 {
   var FlameGraph = {
     UpdateCounts: UpdateCounts
@@ -190,7 +190,7 @@ function FlameGraph(stacks)
       if (stack.b == 0)
         bottomStacks.push(stack);
       stack.children = new Array();
-      stack.id = stackId;
+      stack.id = parseInt(stackId);
       stackArray.push(stack);
     });
 
@@ -210,11 +210,19 @@ function FlameGraph(stacks)
       .attr('height', 20)
       .attr('width', 200)
       .attr('rx', 2)
-      .attr('ry', 2);
+      .attr('ry', 2)
+      .on('click', function(stack) {
+        createstackdimensionfn(stack.id, 'linear');
+      });
     gEnter.append('text')
       .attr('x', 10)
       .attr('y', 15)
-      .text(function(stack) { return stack.f; });
+      .text(function(stack) {
+        return stack.f;
+      })
+      .on('click', function(stack) {
+        createstackdimensionfn(stack.id, 'linear');
+      });
 
     // Compute the depth of each stack.
     var maxDepth = 0;
@@ -304,7 +312,7 @@ function FlameGraph(stacks)
     ForEachProperty(stacks, function(stackId) {
       // Compute the width.
       widths[stackId] = Math.floor(
-        rightInclusiveCounts[stackId] * scaleFactor);
+          rightInclusiveCounts[stackId] * scaleFactor);
 
       // Compute the color.
       var left = leftCounts.samples[stackId] / leftCounts.total;
@@ -351,20 +359,14 @@ function FlameGraph(stacks)
         return xs[stack.id] + kTextPadding;
       })
       .attr('width', function(stack) {
+        if (widths[stack.id] < kTextPadding)
+          return 0;
         return widths[stack.id] - kTextPadding;
       })
       .text(function(stack) {
         var width = widths[stack.id];
         var numVisibleCharacters = width / kCharacterWidth;
-        if (stack.f.length <= numVisibleCharacters)
-          return stack.f;
-
-        if (numVisibleCharacters <= 1)
-          return '';
-        if (numVisibleCharacters == 2)
-          return stack.f.substr(0, 1) + '.';
-
-        return stack.f.substr(0, numVisibleCharacters) + '..';
+        return ElideString(stack.f, numVisibleCharacters);
       });
     groups.selectAll('rect')
       .attr('x', function(stack) { return xs[stack.id]; })
@@ -406,15 +408,19 @@ function tracecompare(path) {
     'k': 'block-device',
     'l': 'user-input'
   };
+  var kNumMetrics = 12;
   var kNumFilters = 2;
   var kNumBuckets = 50;
+  var kBarWidth = 10;
+  var kEpsilon = 1;
+  var kChartTitleMaxLength = 20;
 
   // Available metrics with their min/max value.
   var metricsDict = {};
 
   // Filters, dimensions and groups.
   var filters = new Array();
-  var dimensionsProperties = {};
+  var dimensionNames = {};
   var dimensions = new Array();
   var groups = new Array();
   var groupAll = new Array();
@@ -431,17 +437,20 @@ function tracecompare(path) {
   // Load data.
   d3.json(path, function(error, data) {
 
-    // Save stacks.
+    // Save stacks and executions.
     stacks = data.stacks;
 
     // Find available metrics and compute their min/max value.
     var metricsArray = new Array();
+    var isFirst = true;
     data.executions.forEach(function(d) {
+      // Traverse metrics.
       ForEachProperty(d, function(property) {
         if (property == 'samples')
           return;
 
-        d[property] = d[property] / 1000;
+        // Convert the metric value in usec.
+        d[property] = Math.floor(NanoToMicro(d[property]));
 
         if (metricsDict.hasOwnProperty(property))
         {
@@ -461,6 +470,32 @@ function tracecompare(path) {
           metricsArray.push(metric);
         }
       });
+
+      // Traverse stacks.
+      ForEachProperty(stacks, function(property, stack) {
+        var executionValue = d.samples[property];
+        if (executionValue == undefined)
+        {
+          executionValue = 0;
+        }
+        else
+        {
+          executionValue = Math.floor(NanoToMicro(executionValue));
+          d.samples[property] = executionValue;
+        }
+
+        if (!isFirst)
+        {
+          stack.min = Math.min(executionValue, stack.min);
+          stack.max = Math.max(executionValue, stack.max);
+        }
+        else
+        {
+          stack.min = executionValue;
+          stack.max = executionValue;
+        }
+      });
+      isFirst = false;
     });
 
     // Create filters and empty arrays to hold dimensions and groups.
@@ -493,7 +528,7 @@ function tracecompare(path) {
     d3.selectAll('#total-right').text(formatNumber(data.executions.length));
 
     // Create the flame graph.
-    flameGraph = FlameGraph(data.stacks);
+    flameGraph = FlameGraph(data.stacks, CreateStackDimension);
 
     // Zoom button.
     d3.selectAll('#zoom').on('click', function() {
@@ -505,6 +540,57 @@ function tracecompare(path) {
     // Render.
     RenderAll();
   });
+
+  // Create a scale for a dimension.
+  // @param scaleName 'linear' or 'log'.
+  // @param min The minimum value of the dimension.
+  // @param max The maximum value of the dimension.
+  // @returns An array with the bucket size and the d3 scale.
+  function CreateScale(scaleName, min, max)
+  {
+    var bucketSize, scale;
+    if (scaleName == 'linear')
+    {
+      var tmpBucketSize = (max - min) / kNumBuckets;
+      var chartMin = min - tmpBucketSize;
+      var chartMax = max + tmpBucketSize;
+      bucketSize = (chartMax - chartMin) / kNumBuckets;
+
+      scale = d3.scale.linear()
+          .domain([chartMin, chartMax])
+          .rangeRound([0, kBarWidth * kNumBuckets]);
+    }
+    else if (scaleName == 'log')
+    {
+      var chartMin = Math.max(kEpsilon, min);
+      var chartMax = max;
+
+      bucketSize = (chartMax - chartMin) / kNumBuckets;
+
+      scale = d3.scale.log()
+          .clamp(true)
+          .domain([chartMin, chartMax])
+          .rangeRound([0, kBarWidth * kNumBuckets]);
+    }
+    return [bucketSize, scale];
+  }
+
+  // Return the function that computes the group for a metric value.
+  function GetGroupFunction(bucketSize, scaleName, scale)
+  {
+    return function(metricValue) {
+      if (scaleName == 'linear')
+      {
+        return Math.floor(metricValue / bucketSize) * bucketSize;
+      }
+      else
+      {
+        metricValue = Math.max(kEpsilon, metricValue);
+        return scale.invert(
+            Math.floor(scale(metricValue) / kBarWidth) * kBarWidth);
+      }
+    }
+  }
 
   // Creates a dimension for the specified metric.
   // @param metricId The id of the metric.
@@ -518,51 +604,26 @@ function tracecompare(path) {
     if (dimensions[0].hasOwnProperty(metricId))
       return metricId;
 
-    // Compute bucket size.
-    var bucketSize, scale;
-    if (scaleName == 'linear')
-    {
-      var tmpBucketSize = (metric.max - metric.min) / kNumBuckets;
-      var chartMin = metric.min - tmpBucketSize;
-      var chartMax = metric.max + tmpBucketSize;
-      bucketSize = (chartMax - chartMin) / kNumBuckets;
-
-      scale = d3.scale.linear()
-          .domain([chartMin, chartMax])
-          .rangeRound([0, 10 * kNumBuckets]);
-    }
-    else if (scaleName == 'log')
-    {
-      chartMin = metric.min;
-      chartMax = metric.max;
-      bucketSize = (chartMax - chartMin) / kNumBuckets;
-
-      scale = d3.scale.log()
-          .domain([chartMin, chartMax])
-          .rangeRound([0, 10 * kNumBuckets]);
-    }
+    // Create scale and compute bucket size.
+    var scaleArray = CreateScale(scaleName, metric.min, metric.max);
+    var bucketSize = scaleArray[0];
+    var scale = scaleArray[1];
 
     // Create the dimension for each filter.
     for (var i = 0; i < kNumFilters; ++i)
     {
       var dimension = filters[i].dimension(function(execution) {
-        return execution[metricId];
-      });
-      var group = dimension.group(function(metricValue) {
         if (scaleName == 'linear')
-          return Math.floor(metricValue / bucketSize) * bucketSize;
-        else
-          return scale.invert(Math.floor(scale(metricValue) / 10) * 10);
+          return execution[metricId];
+        return Math.max(kEpsilon, execution[metricId]);
       });
+      var group = dimension.group(
+          GetGroupFunction(bucketSize, scaleName, scale));
       dimensions[i][metricId] = dimension;
       groups[i][metricId] = group;
     }
 
-    dimensionsProperties[metricId] = {
-      name: metric.name,
-      min: metric.min,
-      max: metric.max
-    };
+    dimensionNames[metricId] = metric.name;
 
     // Hide the button used to add this dimension.
     d3.selectAll('#metric-selector-' + metricId).style('display', 'none');
@@ -571,6 +632,60 @@ function tracecompare(path) {
     CreateCharts(metricId, scaleName, scale);
 
     return metricId;
+  }
+
+  // Creates a dimension for the specified stack.
+  // @param stackId the stack identifier.
+  // @param scaleName 'linear' or 'log'.
+  // @returns The id of the created dimension.
+  function CreateStackDimension(stackId, scaleName)
+  {
+    var dimensionId = kNumMetrics + parseInt(stackId);
+
+    // Check whether the dimension already exists.
+    if (dimensions[0].hasOwnProperty(dimensionId))
+      return dimensionId;
+
+    // Get minimum and maximum value for this stack.
+    var minValue = stacks[stackId].min;
+    var maxValue = stacks[stackId].max;
+
+    if (maxValue == 0)
+    {
+      alert('Cannot filter on this stack duration.');
+      return -1;
+    }
+
+    // Create scale and compute bucket size.
+    var scaleArray = CreateScale(scaleName, minValue, maxValue);
+    var bucketSize = scaleArray[0];
+    var scale = scaleArray[1];
+
+    // Create the dimension for each filter.
+    for (var i = 0; i < kNumFilters; ++i)
+    {
+      var dimension = filters[i].dimension(function(execution) {
+        var value = 0;
+        if (execution.samples.hasOwnProperty(stackId))
+          value = execution.samples[stackId];
+
+        if (scaleName == 'linear')
+          return value;
+        return Math.max(kEpsilon, value);
+      });
+      var group = dimension.group(
+          GetGroupFunction(bucketSize, scaleName, scale));
+      dimensions[i][dimensionId] = dimension;
+      groups[i][dimensionId] = group;
+    }
+
+    dimensionNames[dimensionId] =
+        ElideString(stacks[stackId].f, kChartTitleMaxLength);
+
+    // Create the charts.
+    CreateCharts(dimensionId, scaleName, scale);
+
+    return dimensionId;
   }
 
   // Creates charts for the specified dimension.
@@ -583,7 +698,7 @@ function tracecompare(path) {
     if (chartsDict.hasOwnProperty(dimensionId))
       return;
 
-    var dimensionProperties = dimensionsProperties[dimensionId];
+    var name = dimensionNames[dimensionId];
 
     // Create the charts.
     var dimensionCharts = new Array();
@@ -597,7 +712,7 @@ function tracecompare(path) {
 
     chartsDict[dimensionId] = {
       id: dimensionId,
-      name: dimensionProperties.name,
+      name: name,
       charts: dimensionCharts
     };
 
@@ -611,8 +726,8 @@ function tracecompare(path) {
     // Remove charts.
     delete chartsDict[dimensionId];
 
-    // Remove dimension properties.
-    delete dimensionsProperties[dimensionId];
+    // Remove dimension name.
+    delete dimensionNames[dimensionId];
 
     for (var i = 0; i < kNumFilters; ++i)
     {
@@ -688,9 +803,19 @@ function tracecompare(path) {
       .on('click', function(chart) {
         RemoveDimension(chart.id);
         if (scaleName == 'linear')
-          CreateMetricDimension(chart.id, 'log');
+        {
+          if (chart.id < kNumMetrics)
+            CreateMetricDimension(chart.id, 'log');
+          else
+            CreateStackDimension(chart.id - kNumMetrics, 'log');
+        }
         else
-          CreateMetricDimension(chart.id, 'linear');
+        {
+          if (chart.id < kNumMetrics)
+            CreateMetricDimension(chart.id, 'linear');
+          else
+            CreateStackDimension(chart.id - kNumMetrics, 'linear');
+        }
       });
 
     // Create charts.
@@ -755,4 +880,30 @@ function ForEachProperty(obj, callback)
       callback(property, obj[property]);
   }
 }
+
+// Convert nanoseconds to microseconds.
+// @param nsec Duration in nanoseconds.
+// @returns The duration in microseconds.
+function NanoToMicro(nsec)
+{
+    return nsec / 1000;
+}
+
+// Elide a string so that is uses at most |numChar| characters.
+// @param str The string to elide.
+// @param numChar The maximum number of characters to keep.
+// @returns The elided string.
+function ElideString(str, numChar)
+{
+  if (str.length <= numChar)
+    return str;
+
+  if (numChar <= 1)
+    return '';
+  if (numChar == 2)
+    return str.substr(0, 1) + '.';
+
+  return str.substr(0, numChar) + '..';
+}
+
 })(typeof exports !== 'undefined' && exports || this);

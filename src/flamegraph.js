@@ -1,4 +1,4 @@
-function FlameGraph(stacks)
+function FlameGraph(stacks, createstackdimensionfn)
 {
   var FlameGraph = {
     UpdateCounts: UpdateCounts
@@ -34,7 +34,7 @@ function FlameGraph(stacks)
       if (stack.b == 0)
         bottomStacks.push(stack);
       stack.children = new Array();
-      stack.id = stackId;
+      stack.id = parseInt(stackId);
       stackArray.push(stack);
     });
 
@@ -54,11 +54,19 @@ function FlameGraph(stacks)
       .attr('height', 20)
       .attr('width', 200)
       .attr('rx', 2)
-      .attr('ry', 2);
+      .attr('ry', 2)
+      .on('click', function(stack) {
+        createstackdimensionfn(stack.id, 'linear');
+      });
     gEnter.append('text')
       .attr('x', 10)
       .attr('y', 15)
-      .text(function(stack) { return stack.f; });
+      .text(function(stack) {
+        return stack.f;
+      })
+      .on('click', function(stack) {
+        createstackdimensionfn(stack.id, 'linear');
+      });
 
     // Compute the depth of each stack.
     var maxDepth = 0;
@@ -148,7 +156,7 @@ function FlameGraph(stacks)
     ForEachProperty(stacks, function(stackId) {
       // Compute the width.
       widths[stackId] = Math.floor(
-        rightInclusiveCounts[stackId] * scaleFactor);
+          rightInclusiveCounts[stackId] * scaleFactor);
 
       // Compute the color.
       var left = leftCounts.samples[stackId] / leftCounts.total;
@@ -195,20 +203,14 @@ function FlameGraph(stacks)
         return xs[stack.id] + kTextPadding;
       })
       .attr('width', function(stack) {
+        if (widths[stack.id] < kTextPadding)
+          return 0;
         return widths[stack.id] - kTextPadding;
       })
       .text(function(stack) {
         var width = widths[stack.id];
         var numVisibleCharacters = width / kCharacterWidth;
-        if (stack.f.length <= numVisibleCharacters)
-          return stack.f;
-
-        if (numVisibleCharacters <= 1)
-          return '';
-        if (numVisibleCharacters == 2)
-          return stack.f.substr(0, 1) + '.';
-
-        return stack.f.substr(0, numVisibleCharacters) + '..';
+        return ElideString(stack.f, numVisibleCharacters);
       });
     groups.selectAll('rect')
       .attr('x', function(stack) { return xs[stack.id]; })
