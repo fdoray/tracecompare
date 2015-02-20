@@ -22,7 +22,6 @@ function tracecompare(path) {
     'k': 'block-device',
     'l': 'user-input'
   };
-  var kNumMetrics = 12;
   var kNumFilters = 2;
   var kNumBuckets = 50;
   var kBarWidth = 10;
@@ -254,7 +253,7 @@ function tracecompare(path) {
   // @returns The id of the created dimension.
   function CreateStackDimension(stackId, scaleName)
   {
-    var dimensionId = kNumMetrics + parseInt(stackId);
+    var dimensionId = parseInt(stackId);
 
     // Check whether the dimension already exists.
     if (dimensions[0].hasOwnProperty(dimensionId))
@@ -418,17 +417,17 @@ function tracecompare(path) {
         RemoveDimension(chart.id);
         if (scaleName == 'linear')
         {
-          if (chart.id < kNumMetrics)
+          if (typeof(chart.id) == "string")
             CreateMetricDimension(chart.id, 'log');
           else
-            CreateStackDimension(chart.id - kNumMetrics, 'log');
+            CreateStackDimension(chart.id, 'log');
         }
         else
         {
-          if (chart.id < kNumMetrics)
+          if (typeof(chart.id) == "string")
             CreateMetricDimension(chart.id, 'linear');
           else
-            CreateStackDimension(chart.id - kNumMetrics, 'linear');
+            CreateStackDimension(chart.id, 'linear');
         }
       });
 
