@@ -612,9 +612,12 @@ function tracecompare(path) {
     for (var i = 0; i < kNumFilters; ++i)
     {
       var dimension = filters[i].dimension(function(execution) {
+        var value = execution[metricId];
+        if (value === undefined)
+          value = 0;
         if (scaleName == 'linear')
-          return execution[metricId];
-        return Math.max(kEpsilon, execution[metricId]);
+          return value;
+        return Math.max(kEpsilon, value);
       });
       var group = dimension.group(
           GetGroupFunction(bucketSize, scaleName, scale));
@@ -664,10 +667,9 @@ function tracecompare(path) {
     for (var i = 0; i < kNumFilters; ++i)
     {
       var dimension = filters[i].dimension(function(execution) {
-        var value = 0;
-        if (execution.samples.hasOwnProperty(stackId))
-          value = execution.samples[stackId];
-
+        var value = execution.samples[stackId];
+        if (value === undefined)
+          value = 0;
         if (scaleName == 'linear')
           return value;
         return Math.max(kEpsilon, value);
