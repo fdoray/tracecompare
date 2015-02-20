@@ -35,7 +35,23 @@
 <script src="contrib/d3/d3.js"></script>
 <script src="tracecompare.js"></script>
 <script>
-compare = tracecompare("data/io.json");
+
+// From http://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript
+function getParameterByName(name) {
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
+    var results = regex.exec(location.search);
+    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+}
+
+var data = getParameterByName("data");
+if (data.length == 0)
+{
+	alert("No data specified in the URL.");
+}
+else
+{
+	compare = tracecompare("data/" + data + ".json");
+}
 </script>
 
 </body>
