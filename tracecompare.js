@@ -440,39 +440,41 @@ function tracecompare(path) {
     stacks = data.stacks;
 
     var metricsArray = new Array();
-    data.executions.forEach(function(d) {
+    data.executions.forEach(function(execution) {
       // Traverse metrics.
-      ForEachProperty(d, function(property) {
-        if (property == 'samples')
+      ForEachProperty(execution, function(metricId, metricValue) {
+        if (metricId == 'samples')
           return;
 
         // Convert the metric value in usec.
-        d[property] = NanoToMicro(d[property]);
+        metricValue = NanoToMicro(metricValue);
+        execution[metricId] = metricValue;
 
-        if (metricsDict.hasOwnProperty(property))
+        if (metricsDict.hasOwnProperty(metricId))
         {
-          var metric = metricsDict[property];
-          metric.min = Math.min(metric.min, d[property]);
-          metric.max = Math.max(metric.max, d[property]);
+          // The metric has already been seen in other executions.
+          var metric = metricsDict[metricId];
+          metric.min = Math.min(metric.min, metricValue);
+          metric.max = Math.max(metric.max, metricValue);
         }
         else
         {
           var metric = {
-            'id': property,
-            'name': kMetricNames[property],
-            'min': d[property],
-            'max': d[property]
+            'id': metricId,
+            'name': kMetricNames[metricId],
+            'min': metricValue,
+            'max': metricValue
           };
-          metricsDict[property] = metric;
+          metricsDict[metricId] = metric;
           metricsArray.push(metric);
         }
       });
 
       // Traverse stacks.
-      ForEachProperty(d.samples, function(stackId, duration) {
+      ForEachProperty(execution.samples, function(stackId, duration) {
         var stack = stacks[stackId];
         var durationMicro = NanoToMicro(duration);
-        d.samples[stackId] = durationMicro;
+        execution.samples[stackId] = durationMicro;
 
         if (stack.hasOwnProperty('min'))
         {
