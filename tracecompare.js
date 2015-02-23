@@ -1,6 +1,6 @@
 (function(exports){
 tracecompare.version = "1.0.0";
-function barChart() {
+function barChart(callback) {
   if (!barChart.id) barChart.id = 0;
   var margin = {top: 10, right: 10, bottom: 20, left: 10},
       x,
@@ -108,6 +108,7 @@ function barChart() {
       div.select("#clip-" + id + " rect").attr("x", null).attr("width", "100%");
       dimension.filterAll();
     }
+    callback();
   });
   chart.margin = function(_) {
     if (!arguments.length) return margin;
@@ -154,10 +155,11 @@ function barChart() {
   };
   return d3.rebind(chart, brush, "on");
 }
-function FlameGraph(stacks, createstackdimensionfn)
+function FlameGraph(stacks, leftDimension, createstackdimensionfn)
 {
   var FlameGraph = {
-    UpdateCounts: UpdateCounts
+    UpdateCounts: UpdateCounts,
+    UpdateColors: UpdateColors,
   };
 
   // Constants.
@@ -171,8 +173,11 @@ function FlameGraph(stacks, createstackdimensionfn)
   var scaleFactor = 0;
 
   // Colors.
-  var kRed = 238;
-  var kGreen = 238;
+  var colors = {};
+  var kIntensity = 238;
+  var kNeutralColor = [kIntensity, kIntensity, kIntensity];
+  var kSdMinColor = 1.0;
+  var kSdMaxColor = 3.0;
 
   // Flame graph container.
   var container = d3.selectAll('#flamegraph');
@@ -250,7 +255,7 @@ function FlameGraph(stacks, createstackdimensionfn)
       var g = d3.select(this);
       g.selectAll('rect').attr('y', y);
       g.selectAll('text').attr('y', y + kTextYOffset);
-    })
+    });
   }
   Init();
 
@@ -275,13 +280,13 @@ function FlameGraph(stacks, createstackdimensionfn)
     // Compute inclusive count for each stack.
     var leftInclusiveCounts = {};
     var rightInclusiveCounts = {};
-    function ComputeWidth(stackId)
+    function ComputeInclusiveCounts(stackId)
     {
       var leftCount = leftCounts.samples[stackId] / leftCounts.total;
       var rightCount = rightCounts.samples[stackId] / rightCounts.total;
 
       stacks[stackId].children.forEach(function(childStackId) {
-        var counts = ComputeWidth(childStackId);
+        var counts = ComputeInclusiveCounts(childStackId);
         leftCount += counts[0];
         rightCount += counts[1];
       });
@@ -292,7 +297,7 @@ function FlameGraph(stacks, createstackdimensionfn)
       return [leftCount, rightCount];
     }
     bottomStacks.forEach(function(stack) {
-      ComputeWidth(stack.id);
+      ComputeInclusiveCounts(stack.id);
     });
 
     // Compute the total count for the bottom stacks.
@@ -306,34 +311,11 @@ function FlameGraph(stacks, createstackdimensionfn)
     if (updateScale)
       scaleFactor = kFlameGraphWidth / bottomCount;
 
-    // Compute the width and color of each stack.
+    // Compute the width of each stack.
     var widths = {};
-    var colors = {};
     ForEachProperty(stacks, function(stackId) {
-      // Compute the width.
       widths[stackId] = Math.floor(
           rightInclusiveCounts[stackId] * scaleFactor);
-
-      // Compute the color.
-      var left = leftCounts.samples[stackId] / leftCounts.total;
-      var right = rightCounts.samples[stackId] / rightCounts.total;
-
-      // TODO: Improve this algorithm.
-      var maxColor = 20000000;
-      if (left < right)
-      {
-        // Red.
-        var intensity = Math.floor(Math.min(
-          kRed, kRed * (right - left) / maxColor));
-        colors[stackId] = [kRed, kRed - intensity, kRed - intensity];
-      }
-      else
-      {
-        // Green.
-        var intensity = Math.floor(Math.min(
-          kGreen, kGreen * (left - right) / maxColor));
-        colors[stackId] = [kGreen - intensity, kGreen, kGreen - intensity];
-      }
     });
 
     // Compute the x of each stack.
@@ -371,15 +353,103 @@ function FlameGraph(stacks, createstackdimensionfn)
     groups.selectAll('rect')
       .attr('x', function(stack) { return xs[stack.id]; })
       .attr('width', function(stack) { return widths[stack.id]; })
-      .style('fill', function(stack) {
-        var color = colors[stack.id];
-        return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
-      })
       .attr('class', function(stack) {
         if (widths[stack.id] == 0)
           return 'invisible';
         return '';
+      })
+      .style('fill', function(stack) {
+        var color = colors[stack.id];
+        if (color === undefined)
+          color = kNeutralColor;
+        return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
       });
+  }
+
+  // Updates the colors.
+  function UpdateColors(leftCounts, rightCounts, selectedLeft) {
+    // Compute the left mean for each stack.
+    var leftMeans = {};
+    ForEachProperty(leftCounts.samples, function(stackId, count) {
+      leftMeans[stackId] = count / leftCounts.total;
+    });
+
+    // Compute the standard deviation for each left stack.
+    var leftSds = {};
+    var leftSdsCounts = {};
+    selectedLeft.forEach(function(execution) {
+      ForEachProperty(execution.samples, function(stackId, count) {
+        var delta = count - leftMeans[stackId];
+        var leftSd = leftSds[stackId];
+        if (leftSd === undefined)
+          leftSd = 0;
+        leftSds[stackId] = leftSd + (delta * delta);
+
+        if (leftSdsCounts.hasOwnProperty(stackId))
+          ++leftSdsCounts[stackId];
+        else
+          leftSdsCounts[stackId] = 1;
+      });
+    });
+
+    if (selectedLeft.length != 0)
+    {
+      ForEachProperty(leftSds, function(stackId, sd) {
+        var zeroDelta = leftSdsCounts[stackId] * leftMeans[stackId];
+        sd += (zeroDelta * zeroDelta) *
+            (selectedLeft.length - leftSdsCounts[stackId]);
+        leftSds[stackId] = Math.sqrt(sd / selectedLeft.length);
+      });
+    }
+    else
+    {
+      ForEachProperty(leftSds, function(stackId) {
+        leftSds[stackId] = 0;
+      });
+    }
+
+    // Compute the color for each stack.
+    ForEachProperty(stacks, function(stackId) {
+      // Left mean.
+      var leftMean = leftMeans[stackId];
+      if (leftMean === undefined)
+        leftMean = 0;
+
+      // Right mean.
+      var rightMean = rightCounts.samples[stackId];
+      if (rightMean === undefined)
+        rightMean = 0;
+      if (rightCounts.total != 0)
+        rightMean /= rightCounts.total;
+
+      // Difference of means.
+      var meanDiff = rightMean - leftMean;
+      var meanDiffSd = Infinity;
+      var leftSd = leftSds[stackId];
+      if (leftSd !== undefined)
+        meanDiffSd = meanDiff / leftSd;
+
+      // Color.
+      var intensity = kIntensity *
+          (Clamp(Math.abs(meanDiffSd), kSdMinColor, kSdMaxColor)
+           - kSdMinColor) /
+          (kSdMaxColor - kSdMinColor);
+
+      if (meanDiff > 0)
+      {
+        // Red.
+        colors[stackId] = [kIntensity,
+                           kIntensity - intensity,
+                           kIntensity - intensity];
+      }
+      else
+      {
+        // Green.
+        colors[stackId] = [kIntensity - intensity,
+                           kIntensity,
+                           kIntensity - intensity];
+      }
+    });
   }
 
   return FlameGraph;
@@ -423,6 +493,7 @@ function tracecompare(path) {
   var dimensions = new Array();
   var groups = new Array();
   var groupAll = new Array();
+  var dummyDimensions = new Array();
 
   // Charts.
   var chartsDict = {};
@@ -509,6 +580,15 @@ function tracecompare(path) {
       groupAll[i].reduce(ReduceAdd, ReduceRemove, ReduceInitial);
     }
 
+    // Create dummy dimensions that allow us to get all executions
+    // in current filters.
+    for (var i = 0; i < kNumFilters; ++i)
+    {
+      dummyDimensions.push(filters[i].dimension(function() {
+        return 0;
+      }));
+    }
+
     // Create buttons to add metric charts.
     var metricButtonsData = d3.selectAll('#metric-selector')
       .selectAll('li')
@@ -528,7 +608,8 @@ function tracecompare(path) {
     d3.selectAll('#total-right').text(formatNumber(data.executions.length));
 
     // Create the flame graph.
-    flameGraph = FlameGraph(data.stacks, CreateStackDimension);
+    flameGraph = FlameGraph(
+        data.stacks, dummyDimensions[0], CreateStackDimension);
 
     // Zoom button.
     d3.selectAll('#zoom').on('click', function() {
@@ -653,8 +734,9 @@ function tracecompare(path) {
     var minValue = stacks[stackId].min;
     var maxValue = stacks[stackId].max;
 
-    if (maxValue == 0)
+    if (maxValue == 0 || maxValue === undefined)
     {
+      console.log('Cannot filter on this stack duration.');
       alert('Cannot filter on this stack duration.');
       return -1;
     }
@@ -690,6 +772,14 @@ function tracecompare(path) {
     return dimensionId;
   }
 
+  // Called when the selection of a bar chart changes.
+  function BarChartSelectionChanged()
+  {
+    flameGraph.UpdateColors(groupAll[0].value(),
+                            groupAll[1].value(),
+                            dummyDimensions[0].top(Infinity));
+  }
+
   // Creates charts for the specified dimension.
   // @param dimensionId The id of the dimension
   // @param scaleName 'linear' or 'log'.
@@ -706,7 +796,7 @@ function tracecompare(path) {
     var dimensionCharts = new Array();
     for (var i = 0; i < kNumFilters; ++i)
     {
-      dimensionCharts.push(barChart()
+      dimensionCharts.push(barChart(BarChartSelectionChanged)
         .dimension(dimensions[i][dimensionId])
         .group(groups[i][dimensionId])
         .x(scale));
@@ -827,7 +917,9 @@ function tracecompare(path) {
       .enter()
       .append('div')
       .attr('class', 'chart')
-      .each(function(chart) { chart.on("brush", RenderAll).on("brushend", RenderAll); });
+      .each(function(chart) {
+        chart.on("brush", RenderAll).on("brushend", RenderAll);
+      });
 
     // Remove extra chart containers.
     chartContainersData.exit().remove();
@@ -842,7 +934,7 @@ function tracecompare(path) {
     p.total += 1;
 
     ForEachProperty(execution.samples, function(stackId, count) {
-      p.samples[stackId] += count;
+     p.samples[stackId] += count;
     });
 
     return p;
@@ -871,7 +963,8 @@ function tracecompare(path) {
   }
 
   return tracecompare;
-}// Iterates through the properties of an object.
+}
+// Iterates through the properties of an object.
 // @param obj The object to iterate.
 // @param callback The callback.
 function ForEachProperty(obj, callback)
@@ -908,4 +1001,13 @@ function ElideString(str, numChar)
   return str.substr(0, numChar) + '..';
 }
 
+// Clamp a number between 2 values.
+// @param val Number to clamp.
+// @param min Minimum allowed value.
+// @param max Maximum allowed value.
+// @returns Clamped value.
+function Clamp(val, min, max)
+{
+  return Math.min(Math.max(val, min), max);
+}
 })(typeof exports !== 'undefined' && exports || this);

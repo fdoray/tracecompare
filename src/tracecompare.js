@@ -37,6 +37,7 @@ function tracecompare(path) {
   var dimensions = new Array();
   var groups = new Array();
   var groupAll = new Array();
+  var dummyDimensions = new Array();
 
   // Charts.
   var chartsDict = {};
@@ -123,6 +124,15 @@ function tracecompare(path) {
       groupAll[i].reduce(ReduceAdd, ReduceRemove, ReduceInitial);
     }
 
+    // Create dummy dimensions that allow us to get all executions
+    // in current filters.
+    for (var i = 0; i < kNumFilters; ++i)
+    {
+      dummyDimensions.push(filters[i].dimension(function() {
+        return 0;
+      }));
+    }
+
     // Create buttons to add metric charts.
     var metricButtonsData = d3.selectAll('#metric-selector')
       .selectAll('li')
@@ -142,7 +152,8 @@ function tracecompare(path) {
     d3.selectAll('#total-right').text(formatNumber(data.executions.length));
 
     // Create the flame graph.
-    flameGraph = FlameGraph(data.stacks, CreateStackDimension);
+    flameGraph = FlameGraph(
+        data.stacks, dummyDimensions[0], CreateStackDimension);
 
     // Zoom button.
     d3.selectAll('#zoom').on('click', function() {
@@ -267,8 +278,9 @@ function tracecompare(path) {
     var minValue = stacks[stackId].min;
     var maxValue = stacks[stackId].max;
 
-    if (maxValue == 0)
+    if (maxValue == 0 || maxValue === undefined)
     {
+      console.log('Cannot filter on this stack duration.');
       alert('Cannot filter on this stack duration.');
       return -1;
     }
@@ -304,6 +316,14 @@ function tracecompare(path) {
     return dimensionId;
   }
 
+  // Called when the selection of a bar chart changes.
+  function BarChartSelectionChanged()
+  {
+    flameGraph.UpdateColors(groupAll[0].value(),
+                            groupAll[1].value(),
+                            dummyDimensions[0].top(Infinity));
+  }
+
   // Creates charts for the specified dimension.
   // @param dimensionId The id of the dimension
   // @param scaleName 'linear' or 'log'.
@@ -320,7 +340,7 @@ function tracecompare(path) {
     var dimensionCharts = new Array();
     for (var i = 0; i < kNumFilters; ++i)
     {
-      dimensionCharts.push(barChart()
+      dimensionCharts.push(barChart(BarChartSelectionChanged)
         .dimension(dimensions[i][dimensionId])
         .group(groups[i][dimensionId])
         .x(scale));
@@ -458,7 +478,7 @@ function tracecompare(path) {
     p.total += 1;
 
     ForEachProperty(execution.samples, function(stackId, count) {
-      p.samples[stackId] += count;
+     p.samples[stackId] += count;
     });
 
     return p;

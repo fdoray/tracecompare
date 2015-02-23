@@ -1,4 +1,4 @@
-function barChart() {
+function barChart(callback) {
   if (!barChart.id) barChart.id = 0;
   var margin = {top: 10, right: 10, bottom: 20, left: 10},
       x,
@@ -106,6 +106,7 @@ function barChart() {
       div.select("#clip-" + id + " rect").attr("x", null).attr("width", "100%");
       dimension.filterAll();
     }
+    callback();
   });
   chart.margin = function(_) {
     if (!arguments.length) return margin;

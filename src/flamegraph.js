@@ -1,7 +1,8 @@
-function FlameGraph(stacks, createstackdimensionfn)
+function FlameGraph(stacks, leftDimension, createstackdimensionfn)
 {
   var FlameGraph = {
-    UpdateCounts: UpdateCounts
+    UpdateCounts: UpdateCounts,
+    UpdateColors: UpdateColors,
   };
 
   // Constants.
@@ -15,8 +16,11 @@ function FlameGraph(stacks, createstackdimensionfn)
   var scaleFactor = 0;
 
   // Colors.
-  var kRed = 238;
-  var kGreen = 238;
+  var colors = {};
+  var kIntensity = 238;
+  var kNeutralColor = [kIntensity, kIntensity, kIntensity];
+  var kSdMinColor = 1.0;
+  var kSdMaxColor = 3.0;
 
   // Flame graph container.
   var container = d3.selectAll('#flamegraph');
@@ -94,7 +98,7 @@ function FlameGraph(stacks, createstackdimensionfn)
       var g = d3.select(this);
       g.selectAll('rect').attr('y', y);
       g.selectAll('text').attr('y', y + kTextYOffset);
-    })
+    });
   }
   Init();
 
@@ -119,13 +123,13 @@ function FlameGraph(stacks, createstackdimensionfn)
     // Compute inclusive count for each stack.
     var leftInclusiveCounts = {};
     var rightInclusiveCounts = {};
-    function ComputeWidth(stackId)
+    function ComputeInclusiveCounts(stackId)
     {
       var leftCount = leftCounts.samples[stackId] / leftCounts.total;
       var rightCount = rightCounts.samples[stackId] / rightCounts.total;
 
       stacks[stackId].children.forEach(function(childStackId) {
-        var counts = ComputeWidth(childStackId);
+        var counts = ComputeInclusiveCounts(childStackId);
         leftCount += counts[0];
         rightCount += counts[1];
       });
@@ -136,7 +140,7 @@ function FlameGraph(stacks, createstackdimensionfn)
       return [leftCount, rightCount];
     }
     bottomStacks.forEach(function(stack) {
-      ComputeWidth(stack.id);
+      ComputeInclusiveCounts(stack.id);
     });
 
     // Compute the total count for the bottom stacks.
@@ -150,34 +154,11 @@ function FlameGraph(stacks, createstackdimensionfn)
     if (updateScale)
       scaleFactor = kFlameGraphWidth / bottomCount;
 
-    // Compute the width and color of each stack.
+    // Compute the width of each stack.
     var widths = {};
-    var colors = {};
     ForEachProperty(stacks, function(stackId) {
-      // Compute the width.
       widths[stackId] = Math.floor(
           rightInclusiveCounts[stackId] * scaleFactor);
-
-      // Compute the color.
-      var left = leftCounts.samples[stackId] / leftCounts.total;
-      var right = rightCounts.samples[stackId] / rightCounts.total;
-
-      // TODO: Improve this algorithm.
-      var maxColor = 20000000;
-      if (left < right)
-      {
-        // Red.
-        var intensity = Math.floor(Math.min(
-          kRed, kRed * (right - left) / maxColor));
-        colors[stackId] = [kRed, kRed - intensity, kRed - intensity];
-      }
-      else
-      {
-        // Green.
-        var intensity = Math.floor(Math.min(
-          kGreen, kGreen * (left - right) / maxColor));
-        colors[stackId] = [kGreen - intensity, kGreen, kGreen - intensity];
-      }
     });
 
     // Compute the x of each stack.
@@ -215,15 +196,103 @@ function FlameGraph(stacks, createstackdimensionfn)
     groups.selectAll('rect')
       .attr('x', function(stack) { return xs[stack.id]; })
       .attr('width', function(stack) { return widths[stack.id]; })
-      .style('fill', function(stack) {
-        var color = colors[stack.id];
-        return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
-      })
       .attr('class', function(stack) {
         if (widths[stack.id] == 0)
           return 'invisible';
         return '';
+      })
+      .style('fill', function(stack) {
+        var color = colors[stack.id];
+        if (color === undefined)
+          color = kNeutralColor;
+        return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
       });
+  }
+
+  // Updates the colors.
+  function UpdateColors(leftCounts, rightCounts, selectedLeft) {
+    // Compute the left mean for each stack.
+    var leftMeans = {};
+    ForEachProperty(leftCounts.samples, function(stackId, count) {
+      leftMeans[stackId] = count / leftCounts.total;
+    });
+
+    // Compute the standard deviation for each left stack.
+    var leftSds = {};
+    var leftSdsCounts = {};
+    selectedLeft.forEach(function(execution) {
+      ForEachProperty(execution.samples, function(stackId, count) {
+        var delta = count - leftMeans[stackId];
+        var leftSd = leftSds[stackId];
+        if (leftSd === undefined)
+          leftSd = 0;
+        leftSds[stackId] = leftSd + (delta * delta);
+
+        if (leftSdsCounts.hasOwnProperty(stackId))
+          ++leftSdsCounts[stackId];
+        else
+          leftSdsCounts[stackId] = 1;
+      });
+    });
+
+    if (selectedLeft.length != 0)
+    {
+      ForEachProperty(leftSds, function(stackId, sd) {
+        var zeroDelta = leftSdsCounts[stackId] * leftMeans[stackId];
+        sd += (zeroDelta * zeroDelta) *
+            (selectedLeft.length - leftSdsCounts[stackId]);
+        leftSds[stackId] = Math.sqrt(sd / selectedLeft.length);
+      });
+    }
+    else
+    {
+      ForEachProperty(leftSds, function(stackId) {
+        leftSds[stackId] = 0;
+      });
+    }
+
+    // Compute the color for each stack.
+    ForEachProperty(stacks, function(stackId) {
+      // Left mean.
+      var leftMean = leftMeans[stackId];
+      if (leftMean === undefined)
+        leftMean = 0;
+
+      // Right mean.
+      var rightMean = rightCounts.samples[stackId];
+      if (rightMean === undefined)
+        rightMean = 0;
+      if (rightCounts.total != 0)
+        rightMean /= rightCounts.total;
+
+      // Difference of means.
+      var meanDiff = rightMean - leftMean;
+      var meanDiffSd = Infinity;
+      var leftSd = leftSds[stackId];
+      if (leftSd !== undefined)
+        meanDiffSd = meanDiff / leftSd;
+
+      // Color.
+      var intensity = kIntensity *
+          (Clamp(Math.abs(meanDiffSd), kSdMinColor, kSdMaxColor)
+           - kSdMinColor) /
+          (kSdMaxColor - kSdMinColor);
+
+      if (meanDiff > 0)
+      {
+        // Red.
+        colors[stackId] = [kIntensity,
+                           kIntensity - intensity,
+                           kIntensity - intensity];
+      }
+      else
+      {
+        // Green.
+        colors[stackId] = [kIntensity - intensity,
+                           kIntensity,
+                           kIntensity - intensity];
+      }
+    });
   }
 
   return FlameGraph;
