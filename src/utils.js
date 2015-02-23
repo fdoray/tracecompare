@@ -15,7 +15,7 @@ function ForEachProperty(obj, callback)
 // @returns The duration in microseconds.
 function NanoToMicro(nsec)
 {
-    return nsec / 1000;
+    return Math.floor(nsec / 1000);
 }
 
 // Elide a string so that is uses at most |numChar| characters.

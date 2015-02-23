@@ -439,9 +439,7 @@ function tracecompare(path) {
     // Save stacks and executions.
     stacks = data.stacks;
 
-    // Find available metrics and compute their min/max value.
     var metricsArray = new Array();
-    var isFirst = true;
     data.executions.forEach(function(d) {
       // Traverse metrics.
       ForEachProperty(d, function(property) {
@@ -449,7 +447,7 @@ function tracecompare(path) {
           return;
 
         // Convert the metric value in usec.
-        d[property] = Math.floor(NanoToMicro(d[property]));
+        d[property] = NanoToMicro(d[property]);
 
         if (metricsDict.hasOwnProperty(property))
         {
@@ -471,30 +469,31 @@ function tracecompare(path) {
       });
 
       // Traverse stacks.
-      ForEachProperty(stacks, function(property, stack) {
-        var executionValue = d.samples[property];
-        if (executionValue == undefined)
-        {
-          executionValue = 0;
-        }
-        else
-        {
-          executionValue = Math.floor(NanoToMicro(executionValue));
-          d.samples[property] = executionValue;
-        }
+      ForEachProperty(d.samples, function(stackId, duration) {
+        var stack = stacks[stackId];
+        var durationMicro = NanoToMicro(duration);
+        d.samples[stackId] = durationMicro;
 
-        if (!isFirst)
+        if (stack.hasOwnProperty('min'))
         {
-          stack.min = Math.min(executionValue, stack.min);
-          stack.max = Math.max(executionValue, stack.max);
+          stack.min = Math.min(stack.min, durationMicro);
+          stack.max = Math.max(stack.max, durationMicro);
+          ++stack.count;
         }
         else
         {
-          stack.min = executionValue;
-          stack.max = executionValue;
+          stack.min = durationMicro;
+          stack.max = durationMicro;
+          stack.count = 1;
         }
       });
-      isFirst = false;
+    });
+
+    // Set the correct minimum value for stacks that don't appear in
+    // some executions.
+    ForEachProperty(stacks, function(stackId, stack) {
+      if (stack.count != data.executions.length)
+        stack.min = 0;
     });
 
     // Create filters and empty arrays to hold dimensions and groups.
@@ -887,7 +886,7 @@ function ForEachProperty(obj, callback)
 // @returns The duration in microseconds.
 function NanoToMicro(nsec)
 {
-    return nsec / 1000;
+    return Math.floor(nsec / 1000);
 }
 
 // Elide a string so that is uses at most |numChar| characters.
