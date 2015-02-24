@@ -56,14 +56,10 @@ function tracecompare(path) {
 
     var metricsArray = new Array();
     data.executions.forEach(function(execution) {
-      // Traverse metrics.
+      // Traverse metrics to find the min/max values.
       ForEachProperty(execution, function(metricId, metricValue) {
         if (metricId == 'samples')
           return;
-
-        // Convert the metric value in usec.
-        metricValue = NanoToMicro(metricValue);
-        execution[metricId] = metricValue;
 
         if (metricsDict.hasOwnProperty(metricId))
         {
@@ -74,6 +70,7 @@ function tracecompare(path) {
         }
         else
         {
+          // This is the first time that this metric is encountered.
           var metric = {
             'id': metricId,
             'name': kMetricNames[metricId],
@@ -85,32 +82,31 @@ function tracecompare(path) {
         }
       });
 
-      // Traverse stacks.
+      // Traverse stacks to find the min/max values.
       ForEachProperty(execution.samples, function(stackId, duration) {
         var stack = stacks[stackId];
-        var durationMicro = NanoToMicro(duration);
-        execution.samples[stackId] = durationMicro;
 
         if (stack.hasOwnProperty('min'))
         {
-          stack.min = Math.min(stack.min, durationMicro);
-          stack.max = Math.max(stack.max, durationMicro);
+          stack.min = Math.min(stack.min, duration);
+          stack.max = Math.max(stack.max, duration);
           ++stack.count;
         }
         else
         {
-          stack.min = durationMicro;
-          stack.max = durationMicro;
+          stack.min = duration;
+          stack.max = duration;
           stack.count = 1;
         }
       });
     });
 
-    // Set the correct minimum value for stacks that don't appear in
-    // some executions.
+    // Set the minimum value to zero for stacks that don't appear in all
+    // executions.
     ForEachProperty(stacks, function(stackId, stack) {
       if (stack.count != data.executions.length)
         stack.min = 0;
+      delete stack.count;
     });
 
     // Create filters and empty arrays to hold dimensions and groups.
@@ -124,7 +120,7 @@ function tracecompare(path) {
       groupAll[i].reduce(ReduceAdd, ReduceRemove, ReduceInitial);
     }
 
-    // Create dummy dimensions that allow us to get all executions
+    // Create dummy dimensions that allow us to get all executions included
     // in current filters.
     for (var i = 0; i < kNumFilters; ++i)
     {
@@ -147,6 +143,13 @@ function tracecompare(path) {
     });
     metricButtonsData.exit().remove();
 
+    // Create the zoom button.
+    d3.selectAll('#zoom').on('click', function() {
+      flameGraph.UpdateCounts(groupAll[0].value(),
+                              groupAll[1].value(),
+                              true);
+    });
+
     // Show the totals.
     d3.selectAll('#total-left').text(formatNumber(data.executions.length));
     d3.selectAll('#total-right').text(formatNumber(data.executions.length));
@@ -154,13 +157,6 @@ function tracecompare(path) {
     // Create the flame graph.
     flameGraph = FlameGraph(
         data.stacks, dummyDimensions[0], CreateStackDimension);
-
-    // Zoom button.
-    d3.selectAll('#zoom').on('click', function() {
-      flameGraph.UpdateCounts(groupAll[0].value(),
-                              groupAll[1].value(),
-                              true);
-    });
 
     // Render.
     RenderAll();
@@ -203,13 +199,15 @@ function tracecompare(path) {
   // Return the function that computes the group for a metric value.
   function GetGroupFunction(bucketSize, scaleName, scale)
   {
-    return function(metricValue) {
-      if (scaleName == 'linear')
-      {
+    if (scaleName == 'linear')
+    {
+      return function(metricValue) {
         return Math.floor(metricValue / bucketSize) * bucketSize;
       }
-      else
-      {
+    }
+    else
+    {
+      return function(metricValue) {
         metricValue = Math.max(kEpsilon, metricValue);
         return scale.invert(
             Math.floor(scale(metricValue) / kBarWidth) * kBarWidth);
@@ -317,6 +315,7 @@ function tracecompare(path) {
   }
 
   // Called when the selection of a bar chart changes.
+  // Updates the colors of the stacks.
   function BarChartSelectionChanged()
   {
     flameGraph.UpdateColors(groupAll[0].value(),

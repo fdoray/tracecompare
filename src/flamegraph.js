@@ -22,11 +22,11 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   var kSdMinColor = 1.0;
   var kSdMaxColor = 3.0;
 
-  // Flame graph container.
-  var container = d3.selectAll('#flamegraph');
-
   // Stacks at the bottom of the flame graph.
   var bottomStacks = new Array();
+
+  // Flame graph container.
+  var container = d3.selectAll('#flamegraph');
 
   function Init()
   {
@@ -102,82 +102,27 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   }
   Init();
 
-  // Updates the counts for each stack.
-  function UpdateCounts(leftCounts, rightCounts, updateScale)
+  // Update the scale of the flame graph.
+  function UpdateScale(rightCounts, forceUpdateScale)
   {
     // Always update the scale the first time.
     if (scaleFactor == 0)
-      updateScale = true;
+      forceUpdateScale = true;
 
-    // Hide the flame graph if the right group is empty.
-    if (rightCounts.total == 0)
-    {
-      container.style('display', 'none');
-      return;
-    }
-    else
-    {
-      container.style('display', null);
-    }
-
-    // Compute inclusive count for each stack.
-    var leftInclusiveCounts = {};
-    var rightInclusiveCounts = {};
-    function ComputeInclusiveCounts(stackId)
-    {
-      var leftCount = leftCounts.samples[stackId] / leftCounts.total;
-      var rightCount = rightCounts.samples[stackId] / rightCounts.total;
-
-      stacks[stackId].children.forEach(function(childStackId) {
-        var counts = ComputeInclusiveCounts(childStackId);
-        leftCount += counts[0];
-        rightCount += counts[1];
-      });
-
-      leftInclusiveCounts[stackId] = leftCount;
-      rightInclusiveCounts[stackId] = rightCount;
-
-      return [leftCount, rightCount];
-    }
-    bottomStacks.forEach(function(stack) {
-      ComputeInclusiveCounts(stack.id);
-    });
-
-    // Compute the total count for the bottom stacks.
+    // Compute the width of the bottom stacks of the flame graph.
     var bottomCount = 0;
     bottomStacks.forEach(function(stack) {
-      bottomCount += rightInclusiveCounts[stack.id];
+      bottomCount += rightCounts.samples[stack.id];
     });
+    bottomCount /= rightCounts.total;
 
-    if (!updateScale && bottomCount * scaleFactor >= kFlameGraphWidth)
-      updateScale = true;
-    if (updateScale)
+    if (forceUpdateScale || bottomCount * scaleFactor >= kFlameGraphWidth)
       scaleFactor = kFlameGraphWidth / bottomCount;
+  }
 
-    // Compute the width of each stack.
-    var widths = {};
-    ForEachProperty(stacks, function(stackId) {
-      widths[stackId] = Math.floor(
-          rightInclusiveCounts[stackId] * scaleFactor);
-    });
-
-    // Compute the x of each stack.
-    var xs = {};
-    function ComputeX(x, stackId)
-    {
-      xs[stackId] = x;
-      stacks[stackId].children.forEach(function(childStackId) {
-        ComputeX(x, childStackId);
-        x += widths[childStackId];
-      });
-    }
-    var x = 0;
-    bottomStacks.forEach(function(stack) {
-      ComputeX(x, stack.id);
-      x += widths[stack.id];
-    });
-
-    // Set the width and x position of each stack.
+  // Apply positions, widths and colors to the stacks of the flame graph.
+  function ApplyAttributes(xs, widths)
+  {
     var groups = container.selectAll('g.stack').transition();
     groups.selectAll('text')
       .attr('x', function(stack) {
@@ -207,6 +152,51 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
           color = kNeutralColor;
         return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
       });
+  }
+
+  // Updates the counts for each stack.
+  function UpdateCounts(leftCounts, rightCounts, forceUpdateScale)
+  {
+    // Hide the flame graph if the right group is empty.
+    if (rightCounts.total == 0)
+    {
+      container.style('display', 'none');
+      return;
+    }
+    else
+    {
+      container.style('display', null);
+    }
+
+    // Update the scale.
+    UpdateScale(rightCounts, forceUpdateScale);
+
+    // Compute the width of each stack.
+    var widths = {};
+    var multiplier = scaleFactor / rightCounts.total;
+    ForEachProperty(stacks, function(stackId) {
+      widths[stackId] = Math.floor(
+          rightCounts.samples[stackId] * multiplier);
+    });
+
+    // Compute the x of each stack.
+    var xs = {};
+    function ComputeX(x, stackId)
+    {
+      xs[stackId] = x;
+      stacks[stackId].children.forEach(function(childStackId) {
+        ComputeX(x, childStackId);
+        x += widths[childStackId];
+      });
+    }
+    var x = 0;
+    bottomStacks.forEach(function(stack) {
+      ComputeX(x, stack.id);
+      x += widths[stack.id];
+    });
+
+    // Apply widths, positions and colors.
+    ApplyAttributes(xs, widths);
   }
 
   // Updates the colors.

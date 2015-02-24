@@ -10,14 +10,6 @@ function ForEachProperty(obj, callback)
   }
 }
 
-// Convert nanoseconds to microseconds.
-// @param nsec Duration in nanoseconds.
-// @returns The duration in microseconds.
-function NanoToMicro(nsec)
-{
-    return Math.floor(nsec / 1000);
-}
-
 // Elide a string so that is uses at most |numChar| characters.
 // @param str The string to elide.
 // @param numChar The maximum number of characters to keep.
