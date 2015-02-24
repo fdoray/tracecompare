@@ -143,12 +143,19 @@ function tracecompare(path) {
     });
     metricButtonsData.exit().remove();
 
-    // Create the zoom button.
+    // Create the flame graph zoom button.
     d3.selectAll('#zoom').on('click', function() {
       flameGraph.UpdateCounts(groupAll[0].value(),
                               groupAll[1].value(),
                               true);
     });
+
+    // Resize flame graph when window is resized.
+    window.onresize = function() {
+      flameGraph.UpdateCounts(groupAll[0].value(),
+                              groupAll[1].value(),
+                              true);
+    };
 
     // Show the totals.
     d3.selectAll('#total-left').text(formatNumber(data.executions.length));

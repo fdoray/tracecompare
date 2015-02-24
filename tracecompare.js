@@ -165,7 +165,7 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   // Constants.
   var kTextYOffset = 15;
   var kLineHeight = 20;
-  var kFlameGraphWidth = 1516;
+  var kMargin = 40;
   var kTextPadding = 5;
   var kCharacterWidth = 10;
 
@@ -273,8 +273,9 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
     });
     bottomCount /= rightCounts.total;
 
-    if (forceUpdateScale || bottomCount * scaleFactor >= kFlameGraphWidth)
-      scaleFactor = kFlameGraphWidth / bottomCount;
+    var flameGraphWidth = window.innerWidth - kMargin;
+    if (forceUpdateScale || bottomCount * scaleFactor >= flameGraphWidth)
+      scaleFactor = flameGraphWidth / bottomCount;
   }
 
   // Apply positions, widths and colors to the stacks of the flame graph.
@@ -589,12 +590,19 @@ function tracecompare(path) {
     });
     metricButtonsData.exit().remove();
 
-    // Create the zoom button.
+    // Create the flame graph zoom button.
     d3.selectAll('#zoom').on('click', function() {
       flameGraph.UpdateCounts(groupAll[0].value(),
                               groupAll[1].value(),
                               true);
     });
+
+    // Resize flame graph when window is resized.
+    window.onresize = function() {
+      flameGraph.UpdateCounts(groupAll[0].value(),
+                              groupAll[1].value(),
+                              true);
+    };
 
     // Show the totals.
     d3.selectAll('#total-left').text(formatNumber(data.executions.length));
