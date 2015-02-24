@@ -106,3 +106,23 @@ svg#flamegraph g.stack rect {
 svg#flamegraph g.stack rect.invisible {
   display:none;
 }
+
+/* Small screens */
+@media (max-width: 1355px) {
+
+.chart-title {
+  width: 160px;
+  text-align: center;
+  background-color: #F0F0F0;
+}
+.chart-title span {
+  display: block;
+  margin-top:50px;
+  font-size:1em;
+}
+
+#charts-header-left {
+  margin-left: 163px;
+}
+
+}
