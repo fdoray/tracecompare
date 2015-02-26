@@ -1,5 +1,7 @@
 (function(exports){
 tracecompare.version = "1.0.0";
+// The barChart function is highly inspired from the Crossfilter sample
+// available at http://square.github.io/crossfilter/
 function barChart(callback) {
   if (!barChart.id) barChart.id = 0;
   var margin = {top: 10, right: 10, bottom: 20, left: 10},
