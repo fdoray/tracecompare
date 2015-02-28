@@ -98,12 +98,12 @@ svg#flamegraph {
   font-size: 0.9em;
 }
 
-svg#flamegraph g.stack rect {
+svg#flamegraph rect {
   fill: #EEEEEE;
   stroke: #D6D6D6;
 }
 
-svg#flamegraph g.stack rect.invisible {
+svg#flamegraph rect.invisible {
   display:none;
 }
 

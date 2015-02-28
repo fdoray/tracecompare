@@ -28,6 +28,9 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   // Flame graph container.
   var container = d3.selectAll('#flamegraph');
 
+  // Indicates whether a view refresh has been scheduled.
+  var refreshScheduled = false;
+
   function Init()
   {
     var stackArray = new Array();
@@ -63,11 +66,6 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
         createstackdimensionfn(stack.id, 'linear');
       });
     gEnter.append('text')
-      .attr('x', 10)
-      .attr('y', 15)
-      .text(function(stack) {
-        return stack.f;
-      })
       .on('click', function(stack) {
         createstackdimensionfn(stack.id, 'linear');
       });
@@ -124,8 +122,8 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   // Apply positions, widths and colors to the stacks of the flame graph.
   function ApplyAttributes(xs, widths)
   {
-    var groups = container.selectAll('g.stack').transition();
-    groups.selectAll('text')
+    var text = container.selectAll('text');
+    text
       .attr('x', function(stack) {
         return xs[stack.id] + kTextPadding;
       })
@@ -139,7 +137,8 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
         var numVisibleCharacters = width / kCharacterWidth;
         return ElideString(stack.f, numVisibleCharacters);
       });
-    groups.selectAll('rect')
+    var rect = container.selectAll('rect');
+    rect
       .attr('x', function(stack) { return xs[stack.id]; })
       .attr('width', function(stack) { return widths[stack.id]; })
       .attr('class', function(stack) {
@@ -153,51 +152,69 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
           color = kNeutralColor;
         return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
       });
+
+    return true;
   }
 
   // Updates the counts for each stack.
   function UpdateCounts(leftCounts, rightCounts, forceUpdateScale)
   {
-    // Hide the flame graph if the right group is empty.
-    if (rightCounts.total == 0)
-    {
-      container.style('display', 'none');
+    if (refreshScheduled)
       return;
-    }
-    else
-    {
-      container.style('display', null);
-    }
 
-    // Update the scale.
-    UpdateScale(rightCounts, forceUpdateScale);
+    d3.timer(function() {
 
-    // Compute the width of each stack.
-    var widths = {};
-    var multiplier = scaleFactor / rightCounts.total;
-    ForEachProperty(stacks, function(stackId) {
-      widths[stackId] = Math.floor(
-          rightCounts.samples[stackId] * multiplier);
-    });
+      console.log('refreshing');
 
-    // Compute the x of each stack.
-    var xs = {};
-    function ComputeX(x, stackId)
-    {
-      xs[stackId] = x;
-      stacks[stackId].children.forEach(function(childStackId) {
-        ComputeX(x, childStackId);
-        x += widths[childStackId];
+      // Hide the flame graph if the right group is empty.
+      if (rightCounts.total == 0)
+      {
+        container.style('display', 'none');
+        return;
+      }
+      else
+      {
+        container.style('display', null);
+      }
+
+      // Update the scale.
+      UpdateScale(rightCounts, forceUpdateScale);
+
+      // Compute the width of each stack.
+      var widths = {};
+      var multiplier = scaleFactor / rightCounts.total;
+      ForEachProperty(stacks, function(stackId) {
+        widths[stackId] = Math.floor(
+            rightCounts.samples[stackId] * multiplier);
       });
-    }
-    var x = 0;
-    bottomStacks.forEach(function(stack) {
-      ComputeX(x, stack.id);
-      x += widths[stack.id];
-    });
 
-    // Apply widths, positions and colors.
-    ApplyAttributes(xs, widths);
+      // Compute the x of each stack.
+      var xs = {};
+      function ComputeX(x, stackId)
+      {
+        xs[stackId] = x;
+        stacks[stackId].children.forEach(function(childStackId) {
+          ComputeX(x, childStackId);
+          x += widths[childStackId];
+        });
+      }
+      var x = 0;
+      bottomStacks.forEach(function(stack) {
+        ComputeX(x, stack.id);
+        x += widths[stack.id];
+      });
+
+      // Apply widths, positions and colors.
+      ApplyAttributes(xs, widths);
+
+      // No more refresh scheduled.
+      refreshScheduled = false;
+
+      return true;
+
+    }, 500);
+
+    refreshScheduled = true;
   }
 
   // Updates the colors.
