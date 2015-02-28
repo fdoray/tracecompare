@@ -835,7 +835,10 @@ function tracecompare(path) {
     // Note: the button only exists if its a metric dimension.
     d3.selectAll('#metric-selector-' + dimensionId).style('display', null);
 
-    // Update the page.
+    // Update the colors.
+    BarChartSelectionChanged();
+
+    // Update the charts.
     ShowCharts(chartsDict);
   }
 
