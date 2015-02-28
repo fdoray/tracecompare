@@ -5,6 +5,7 @@ all: tracecompare.min.js
 tracecompare.js: \
 	src/barchart.js \
 	src/flamegraph.js \
+	src/table.js \
 	src/tracecompare.js \
 	src/utils.js \
 	Makefile

@@ -107,6 +107,27 @@ svg#flamegraph g.stack rect.invisible {
   display:none;
 }
 
+/* Table */
+table {
+  margin-top: 2em;
+  margin-bottom:2em;
+  border-collapse: collapse;
+  border-spacing: 0;
+  min-width: 800px;
+}
+
+table th {
+  text-align: left;
+}
+
+table th, table td {
+  padding: 0.3em;
+}
+
+table tr {
+  border-bottom: 1px solid #D6D6D6;
+}
+
 /* Small screens */
 @media (max-width: 1355px) {
 

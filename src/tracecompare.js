@@ -22,6 +22,7 @@ function tracecompare(path) {
     'k': 'block-device',
     'l': 'user-input'
   };
+  var kDurationMetricId = 'a';
   var kNumFilters = 2;
   var kNumBuckets = 50;
   var kBarWidth = 10;
@@ -44,6 +45,9 @@ function tracecompare(path) {
 
   // Flame graph.
   var flameGraph;
+
+  // Table.
+  var table;
 
   // Stacks.
   var stacks;
@@ -124,8 +128,8 @@ function tracecompare(path) {
     // in current filters.
     for (var i = 0; i < kNumFilters; ++i)
     {
-      dummyDimensions.push(filters[i].dimension(function() {
-        return 0;
+      dummyDimensions.push(filters[i].dimension(function(execution) {
+        return execution[kDurationMetricId];
       }));
     }
 
@@ -164,6 +168,11 @@ function tracecompare(path) {
     // Create the flame graph.
     flameGraph = FlameGraph(
         data.stacks, dummyDimensions[0], CreateStackDimension);
+
+    // Create the table.
+    table = d3.selectAll('#executions-table').data([function(tbody) {
+      return Table(tbody, dummyDimensions[1]);
+    }]);
 
     // Render.
     RenderAll();
@@ -409,6 +418,9 @@ function tracecompare(path) {
     flameGraph.UpdateCounts(groupAll[0].value(),
                             groupAll[1].value(),
                             false);
+
+    // Render table.
+    table.each(Render);
 
     // Render number of selected executions per group.
     d3.selectAll('#active-left').text(formatNumber(groupAll[0].value().total));
