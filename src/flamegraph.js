@@ -22,6 +22,9 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   var kSdMinColor = 1.0;
   var kSdMaxColor = 3.0;
 
+  // Refresh period.
+  var kRefreshPeriod = 20;
+
   // Stacks at the bottom of the flame graph.
   var bottomStacks = new Array();
 
@@ -122,8 +125,16 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   // Apply positions, widths and colors to the stacks of the flame graph.
   function ApplyAttributes(xs, widths)
   {
-    var text = container.selectAll('text');
-    text
+    container.selectAll('g')
+      .attr('class', function(stack) {
+        if (widths[stack.id] < kCharacterWidth && stack.depth != 0)
+          return 'inv';
+        return 'vis';
+      });
+
+    var groups = container.selectAll('g.vis');
+
+    groups.selectAll('text').transition()
       .attr('x', function(stack) {
         return xs[stack.id] + kTextPadding;
       })
@@ -137,15 +148,9 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
         var numVisibleCharacters = width / kCharacterWidth;
         return ElideString(stack.f, numVisibleCharacters);
       });
-    var rect = container.selectAll('rect');
-    rect
+    groups.selectAll('rect').transition()
       .attr('x', function(stack) { return xs[stack.id]; })
       .attr('width', function(stack) { return widths[stack.id]; })
-      .attr('class', function(stack) {
-        if (widths[stack.id] == 0)
-          return 'invisible';
-        return '';
-      })
       .style('fill', function(stack) {
         var color = colors[stack.id];
         if (color === undefined)
@@ -164,7 +169,7 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
 
     d3.timer(function() {
 
-      console.log('refreshing');
+      console.log('refreshing new');
 
       // Hide the flame graph if the right group is empty.
       if (rightCounts.total == 0)
@@ -212,7 +217,7 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
 
       return true;
 
-    }, 500);
+    }, kRefreshPeriod);
 
     refreshScheduled = true;
   }
