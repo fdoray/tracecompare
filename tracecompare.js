@@ -521,7 +521,53 @@ function tracecompare(path) {
     'i': 'timer',
     'j': 'network',
     'k': 'block-device',
-    'l': 'user-input'
+    'l': 'user-input',
+    'p0': 'instructions',
+    'p1': 'cache-references',
+    'p2': 'cache-misses',
+    'p3': 'branch-instructions',
+    'p4': 'branches',
+    'p5': 'branch-misses',
+    'p6': 'L1-dcache-loads',
+    'p7': 'L1-dcache-load-misses',
+    'p8': 'L1-dcache-stores',
+    'p9': 'L1-dcache-store-misses',
+    'p10': 'L1-dcache-prefetches',
+    'p11': 'L1-dcache-prefetch-misses',
+    'p12': 'L1-icache-loads',
+    'p13': 'L1-icache-load-misses',
+    'p14': 'L1-icache-stores',
+    'p15': 'L1-icache-store-misses',
+    'p16': 'L1-icache-prefetches',
+    'p17': 'L1-icache-prefetch-misses',
+    'p18': 'LLC-loads',
+    'p19': 'LLC-load-misses',
+    'p20': 'LLC-stores',
+    'p21': 'LLC-store-misses',
+    'p22': 'LLC-prefetches',
+    'p23': 'LLC-prefetch-misses',
+    'p24': 'dTLB-loads',
+    'p25': 'perf:thread:dTLB-load-misses',
+    'p26': 'dTLB-stores',
+    'p27': 'dTLB-store-misses',
+    'p28': 'dTLB-prefetches',
+    'p29': 'dTLB-prefetch-misses',
+    'p30': 'iTLB-loads',
+    'p31': 'iTLB-load-misses',
+    'p32': 'branch-loads',
+    'p33': 'branch-load-misses',
+    'p34': 'cpu-clock',
+    'p35': 'task-clock',
+    'p36': 'page-fault',
+    'p37': 'faults',
+    'p38': 'major-faults',
+    'p39': 'minor-faults',
+    'p40': 'context-switches',
+    'p41': 'cs',
+    'p42': 'cpu-migrations',
+    'p43': 'migrations',
+    'p44': 'alignment-faults',
+    'p45': 'emulation-faults',
   };
   var kDurationMetricId = 'a';
   var kNumFilters = 2;
@@ -690,6 +736,9 @@ function tracecompare(path) {
     if (scaleName == 'linear')
     {
       var tmpBucketSize = (max - min) / kNumBuckets;
+      if (tmpBucketSize < 1)
+        tmpBucketSize = 1;
+
       var chartMin = min - tmpBucketSize;
       var chartMax = max + tmpBucketSize;
       bucketSize = (chartMax - chartMin) / kNumBuckets;
