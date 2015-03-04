@@ -8,6 +8,7 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   // Constants.
   var kTextYOffset = 15;
   var kLineHeight = 20;
+  var kCornerRadius = 2;
   var kMargin = 40;
   var kTextPadding = 5;
   var kCharacterWidth = 10;
@@ -61,10 +62,9 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
     var gEnter = gData.enter().append('g')
       .attr('class', 'stack');
     gEnter.append('rect')
-      .attr('height', 20)
-      .attr('width', 200)
-      .attr('rx', 2)
-      .attr('ry', 2)
+      .attr('height', kLineHeight)
+      .attr('rx', kCornerRadius)
+      .attr('ry', kCornerRadius)
       .on('click', function(stack) {
         createstackdimensionfn(stack.id, 'linear');
       });

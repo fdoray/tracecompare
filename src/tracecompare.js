@@ -101,7 +101,7 @@ function tracecompare(path) {
   // Load data.
   d3.json(path, function(error, data) {
 
-    // Save stacks and executions.
+    // Save stacks.
     stacks = data.stacks;
 
     var metricsArray = new Array();
@@ -171,7 +171,7 @@ function tracecompare(path) {
     }
 
     // Create dummy dimensions that allow us to get all executions included
-    // in current filters.
+    // in the current filters, sorted by duration.
     for (var i = 0; i < kNumFilters; ++i)
     {
       dummyDimensions.push(filters[i].dimension(function(execution) {
@@ -193,7 +193,15 @@ function tracecompare(path) {
     });
     metricButtonsData.exit().remove();
 
-    // Create the flame graph zoom button.
+    // Show the totals.
+    d3.selectAll('#total-left').text(formatNumber(data.executions.length));
+    d3.selectAll('#total-right').text(formatNumber(data.executions.length));
+
+    // Create the flame graph.
+    flameGraph = FlameGraph(
+        data.stacks, dummyDimensions[0], CreateStackDimension);
+
+      // Create the flame graph zoom button.
     d3.selectAll('#zoom').on('click', function() {
       flameGraph.UpdateCounts(groupAll[0].value(),
                               groupAll[1].value(),
@@ -206,14 +214,6 @@ function tracecompare(path) {
                               groupAll[1].value(),
                               true);
     };
-
-    // Show the totals.
-    d3.selectAll('#total-left').text(formatNumber(data.executions.length));
-    d3.selectAll('#total-right').text(formatNumber(data.executions.length));
-
-    // Create the flame graph.
-    flameGraph = FlameGraph(
-        data.stacks, dummyDimensions[0], CreateStackDimension);
 
     // Create the table.
     table = d3.selectAll('#executions-table').data([function(tbody) {
@@ -262,6 +262,10 @@ function tracecompare(path) {
   }
 
   // Return the function that computes the group for a metric value.
+  // @param bucketSize Size of the buckets.
+  // @param scaleName 'log' or 'linear'
+  // @param scale The d3 scale.
+  // @returns the function that computes the group for a metric value.
   function GetGroupFunction(bucketSize, scaleName, scale)
   {
     if (scaleName == 'linear')
@@ -379,15 +383,6 @@ function tracecompare(path) {
     return dimensionId;
   }
 
-  // Called when the selection of a bar chart changes.
-  // Updates the colors of the stacks.
-  function BarChartSelectionChanged()
-  {
-    flameGraph.UpdateColors(groupAll[0].value(),
-                            groupAll[1].value(),
-                            dummyDimensions[0].top(Infinity));
-  }
-
   // Creates charts for the specified dimension.
   // @param dimensionId The id of the dimension
   // @param scaleName 'linear' or 'log'.
@@ -413,10 +408,11 @@ function tracecompare(path) {
     chartsDict[dimensionId] = {
       id: dimensionId,
       name: name,
-      charts: dimensionCharts
+      charts: dimensionCharts,
+      scaleName: scaleName,
     };
 
-    ShowCharts(chartsDict, scaleName);
+    ShowCharts(chartsDict);
   }
 
   // Removes a dimension.
@@ -451,6 +447,15 @@ function tracecompare(path) {
     ShowCharts(chartsDict);
   }
 
+  // Called when the selection of a bar chart changes.
+  // Updates the colors of the stacks.
+  function BarChartSelectionChanged()
+  {
+    flameGraph.UpdateColors(groupAll[0].value(),
+                            groupAll[1].value(),
+                            dummyDimensions[0].top(Infinity));
+  }
+
   // Renders the specified chart.
   function Render(method)
   {
@@ -478,8 +483,7 @@ function tracecompare(path) {
 
   // Inserts in the page the charts from the provided dictionary.
   // @param charts Dictionary of charts.
-  // @param scaleName 'linear' or 'log'.
-  function ShowCharts(charts, scaleName)
+  function ShowCharts(charts)
   {
     var chartsArray = new Array();
     ForEachProperty(charts, function(chartKey, chart) { chartsArray.push(chart); });
@@ -491,7 +495,7 @@ function tracecompare(path) {
       .append('div')
       .attr('class', 'chart-container');
 
-    // Create title.
+    // Create titles.
     var title = chartContainersEnter.append('div').attr('class', 'chart-title');
     title.append('span').text(function(chart) { return chart.name; });
     title.append('a')
@@ -499,8 +503,8 @@ function tracecompare(path) {
       .attr('href', '#')
       .on('click', function(chart) { RemoveDimension(chart.id); });
     title.append('a')
-      .text(function() {
-        if (scaleName == 'log')
+      .text(function(chart) {
+        if (chart.scaleName == 'log')
           return 'Linear';
         else
           return 'Log';
@@ -508,7 +512,7 @@ function tracecompare(path) {
       .attr('href', '#')
       .on('click', function(chart) {
         RemoveDimension(chart.id);
-        if (scaleName == 'linear')
+        if (chart.scaleName == 'linear')
         {
           if (typeof(chart.id) == "string")
             CreateMetricDimension(chart.id, 'log');
