@@ -203,16 +203,18 @@ function tracecompare(path) {
 
       // Create the flame graph zoom button.
     d3.selectAll('#zoom').on('click', function() {
-      flameGraph.UpdateCounts(groupAll[0].value(),
-                              groupAll[1].value(),
-                              true);
+      flameGraph.UpdateCounts(groupAll[1].value(), true);
+    });
+
+    // Create the unfocus button.
+    d3.selectAll('#unfocus').on('click', function() {
+      flameGraph.Unfocus();
+      d3.selectAll('#unfocus').style('display', 'none');
     });
 
     // Resize flame graph when window is resized.
     window.onresize = function() {
-      flameGraph.UpdateCounts(groupAll[0].value(),
-                              groupAll[1].value(),
-                              true);
+      flameGraph.UpdateCounts(groupAll[1].value(), true);
     };
 
     // Create the table.
@@ -465,6 +467,10 @@ function tracecompare(path) {
     d3.selectAll('#selected-function-filter').on('click', function() {
       CreateStackDimension(stackId, 'linear');
     });
+    d3.selectAll('#selected-function-focus').on('click', function() {
+      flameGraph.FocusOnStack(stackId);
+      d3.selectAll('#unfocus').style('display', null);
+    });
   }
 
   // Renders the specified chart.
@@ -480,9 +486,7 @@ function tracecompare(path) {
     d3.selectAll('div.chart').each(Render);
 
     // Render flame graph.
-    flameGraph.UpdateCounts(groupAll[0].value(),
-                            groupAll[1].value(),
-                            false);
+    flameGraph.UpdateCounts(groupAll[1].value(), false);
 
     // Render table.
     table.each(Render);
