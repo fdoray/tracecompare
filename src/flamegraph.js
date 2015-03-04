@@ -1,4 +1,4 @@
-function FlameGraph(stacks, leftDimension, createstackdimensionfn)
+function FlameGraph(stacks, leftDimension, clickStackCallback)
 {
   var FlameGraph = {
     UpdateCounts: UpdateCounts,
@@ -9,7 +9,7 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   var kTextYOffset = 15;
   var kLineHeight = 20;
   var kCornerRadius = 2;
-  var kMargin = 40;
+  var kMargin = 31;
   var kTextPadding = 5;
   var kCharacterWidth = 10;
 
@@ -66,11 +66,11 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
       .attr('rx', kCornerRadius)
       .attr('ry', kCornerRadius)
       .on('click', function(stack) {
-        createstackdimensionfn(stack.id, 'linear');
+        clickStackCallback(stack.id);
       });
     gEnter.append('text')
       .on('click', function(stack) {
-        createstackdimensionfn(stack.id, 'linear');
+        clickStackCallback(stack.id);
       });
 
     // Compute the depth of each stack.

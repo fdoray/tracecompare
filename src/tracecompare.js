@@ -199,7 +199,7 @@ function tracecompare(path) {
 
     // Create the flame graph.
     flameGraph = FlameGraph(
-        data.stacks, dummyDimensions[0], CreateStackDimension);
+        data.stacks, dummyDimensions[0], ClickStackCallback);
 
       // Create the flame graph zoom button.
     d3.selectAll('#zoom').on('click', function() {
@@ -456,6 +456,17 @@ function tracecompare(path) {
                             dummyDimensions[0].top(Infinity));
   }
 
+  // Called when the user clicks on a stack in the flame graph.
+  // @param stackId The identifier of the clicked stack.
+  function ClickStackCallback(stackId)
+  {
+    d3.selectAll('#selected-function').style('display', null);
+    d3.selectAll('#selected-function-name').text(stacks[stackId].f);
+    d3.selectAll('#selected-function-filter').on('click', function() {
+      CreateStackDimension(stackId, 'linear');
+    });
+  }
+
   // Renders the specified chart.
   function Render(method)
   {
@@ -500,7 +511,7 @@ function tracecompare(path) {
     title.append('span').text(function(chart) { return chart.name; });
     title.append('a')
       .text('Remove')
-      .attr('href', '#')
+      .attr('href', 'javascript:void(0)')
       .on('click', function(chart) { RemoveDimension(chart.id); });
     title.append('a')
       .text(function(chart) {
@@ -509,7 +520,7 @@ function tracecompare(path) {
         else
           return 'Log';
       })
-      .attr('href', '#')
+      .attr('href', 'javascript:void(0)')
       .on('click', function(chart) {
         RemoveDimension(chart.id);
         if (chart.scaleName == 'linear')
