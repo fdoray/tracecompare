@@ -45,6 +45,10 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
         bottomStacks.push(stack);
       stack.children = new Array();
       stack.id = parseInt(stackId);
+
+      // Simplify function name.
+      stack.f = stack.f.replace(/mongo::/g, '');
+
       stackArray.push(stack);
     });
 
