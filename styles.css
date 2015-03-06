@@ -107,6 +107,28 @@ svg#flamegraph rect {
   stroke: #D6D6D6;
 }
 
+/* Selected function */
+#selected-function
+{
+  border: 1px solid #D6D6D6;
+  border-radius: 2px;
+  padding: 0.5em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+#selected-function #selected-function-name
+{
+  display:block;
+  margin-right:100px;
+}
+
+#selected-function #selected-function-links
+{
+  position:absolute;
+  right: 20px;
+}
+
 /* Table */
 table {
   margin-top: 2em;

@@ -20,7 +20,7 @@ function ElideString(str, numChar)
     return str;
 
   if (numChar <= 1)
-    return '';
+    return str.substr(0, 1);
   if (numChar == 2)
     return str.substr(0, 1) + '.';
 

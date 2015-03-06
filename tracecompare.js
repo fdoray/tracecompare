@@ -157,22 +157,28 @@ function barChart(callback) {
   };
   return d3.rebind(chart, brush, "on");
 }
-function FlameGraph(stacks, leftDimension, createstackdimensionfn)
+function FlameGraph(stacks, leftDimension, clickStackCallback)
 {
   var FlameGraph = {
     UpdateCounts: UpdateCounts,
     UpdateColors: UpdateColors,
+    FocusOnStack: FocusOnStack,
+    Unfocus: Unfocus,
   };
 
   // Constants.
   var kTextYOffset = 15;
   var kLineHeight = 20;
-  var kMargin = 40;
+  var kCornerRadius = 2;
+  var kMargin = 31;
   var kTextPadding = 5;
   var kCharacterWidth = 10;
 
   // Scale factor.
   var scaleFactor = 0;
+
+  // Maximum stack depth.
+  var maxDepth;
 
   // Colors.
   var colors = {};
@@ -186,12 +192,41 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
 
   // Stacks at the bottom of the flame graph.
   var bottomStacks = new Array();
+  var bottomStacksBackup;
 
   // Flame graph container.
   var container = d3.selectAll('#flamegraph');
 
   // Indicates whether a view refresh has been scheduled.
   var refreshScheduled = false;
+
+  // Version of the flame graph (incremented when there is a zoom
+  // on a stack).
+  var version = 0;
+
+  // Backup of the right counts.
+  var rightCountsBackup;
+
+  // Width of the rendered function names.
+  var computedTextLength = {};
+
+  // Set the height of the SVG and the y position of each stack.
+  // @param bottomDepth Depth of the stack at the bottom of the SVG.
+  function InitY(bottomDepth)
+  {
+    // Set the height of the SVG.
+    var tmpMaxDepth = maxDepth - bottomDepth;
+    var svgHeight = (tmpMaxDepth + 1) * kLineHeight;
+    container.style('height', '' + svgHeight + 'px');
+
+    // Set the y position of each stack DOM element.
+    container.selectAll('g.stack').each(function(stack) {
+      var y = svgHeight - (stack.depth + 1) * kLineHeight;
+      var g = d3.select(this);
+      g.selectAll('rect').attr('y', y);
+      g.selectAll('text').attr('y', y + kTextYOffset);
+    });
+  }
 
   function Init()
   {
@@ -204,12 +239,14 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
         bottomStacks.push(stack);
       stack.children = new Array();
       stack.id = parseInt(stackId);
+      stack.version = version;
 
       // Simplify function name.
       stack.f = stack.f.replace(/mongo::/g, '');
 
       stackArray.push(stack);
     });
+    bottomStacksBackup = bottomStacks;
 
     // Fill the array of children of each stack.
     ForEachProperty(stacks, function(stackId, stack) {
@@ -224,20 +261,27 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
     var gEnter = gData.enter().append('g')
       .attr('class', 'stack');
     gEnter.append('rect')
-      .attr('height', 20)
-      .attr('width', 200)
-      .attr('rx', 2)
-      .attr('ry', 2)
+      .attr('height', kLineHeight)
+      .attr('rx', kCornerRadius)
+      .attr('ry', kCornerRadius)
       .on('click', function(stack) {
-        createstackdimensionfn(stack.id, 'linear');
+        clickStackCallback(stack.id);
       });
     gEnter.append('text')
+      .text(function(stack) {
+        return stack.f;
+      })
       .on('click', function(stack) {
-        createstackdimensionfn(stack.id, 'linear');
+        clickStackCallback(stack.id);
       });
 
+    // Compute the text length of each stack.
+    container.selectAll('text').each(function(stack) {
+      computedTextLength[stack.id] = this.getComputedTextLength();
+    });
+
     // Compute the depth of each stack.
-    var maxDepth = 0;
+    maxDepth = 0;
     function ComputeDepthRecursive(depth, stack)
     {
       stack.children.forEach(function(childStackId) {
@@ -252,17 +296,7 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
       ComputeDepthRecursive(1, stack);
     });
 
-    // Set the height of the SVG.
-    var svgHeight = (maxDepth + 1) * kLineHeight;
-    container.style('height', '' + svgHeight + 'px');
-
-    // Set the y position of each stack DOM element.
-    container.selectAll('g.stack').each(function(stack) {
-      var y = svgHeight - (stack.depth + 1) * kLineHeight;
-      var g = d3.select(this);
-      g.selectAll('rect').attr('y', y);
-      g.selectAll('text').attr('y', y + kTextYOffset);
-    });
+    InitY(0);
   }
   Init();
 
@@ -290,8 +324,11 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   {
     container.selectAll('g')
       .attr('class', function(stack) {
-        if (widths[stack.id] < kCharacterWidth && stack.depth != 0)
+        if (stack.version != version ||
+            (widths[stack.id] < kCharacterWidth && stack.depth != 0))
+        {
           return 'inv';
+        }
         return 'vis';
       });
 
@@ -307,9 +344,13 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
         return widths[stack.id] - kTextPadding;
       })
       .text(function(stack) {
-        var width = widths[stack.id];
-        var numVisibleCharacters = width / kCharacterWidth;
-        return ElideString(stack.f, numVisibleCharacters);
+        var availableWidth = widths[stack.id] - kTextPadding;
+        var textWidth = computedTextLength[stack.id];
+        if (textWidth < availableWidth)
+          return stack.f;
+        var proportion = Math.max(0, (availableWidth / textWidth) - 0.01);
+        var numChars = Math.floor(proportion * stack.f.length);
+        return ElideString(stack.f, numChars);
       });
     groups.selectAll('rect').transition()
       .attr('x', function(stack) { return xs[stack.id]; })
@@ -325,14 +366,15 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
   }
 
   // Updates the counts for each stack.
-  function UpdateCounts(leftCounts, rightCounts, forceUpdateScale)
+  function UpdateCounts(rightCounts, forceUpdateScale)
   {
+    rightCountsBackup = rightCounts;
+
     if (refreshScheduled)
       return;
 
     d3.timer(function() {
-
-      console.log('refreshing new');
+      rightCounts = rightCountsBackup;
 
       // Hide the flame graph if the right group is empty.
       if (rightCounts.total == 0)
@@ -471,6 +513,47 @@ function FlameGraph(stacks, leftDimension, createstackdimensionfn)
     });
   }
 
+  // Focus on the stacks currently in the bottomStacks array.
+  function FocusInternal(focusDepth)
+  {
+    // Update y positions.
+    InitY(focusDepth);
+
+    // Determine which elements must be visible.
+    ++version;
+    function SetVisibleElements(stack)
+    {
+      stack.version = version;
+      stack.children.forEach(function(childStackId) {
+        var child = stacks[childStackId];
+        child.version = version;
+        SetVisibleElements(child);
+      });
+    }
+    bottomStacks.forEach(function(stack) {
+      SetVisibleElements(stack);
+    });
+
+    // Update x positiions.
+    UpdateCounts(rightCountsBackup, true);
+  }
+
+  // Focus on a stack.
+  // @param stackId The identifier of the stack on which to zoom.
+  function FocusOnStack(stackId)
+  {
+    var stack = stacks[stackId];
+    bottomStacks = new Array(stack);
+    FocusInternal(stack.depth);
+  }
+
+  // Cancel stack focus.
+  function Unfocus()
+  {
+    bottomStacks = bottomStacksBackup;
+    FocusInternal(0);
+  }
+
   return FlameGraph;
 }
 var formatMicroseconds = d3.format('06d');
@@ -606,7 +689,7 @@ function tracecompare(path) {
   // Load data.
   d3.json(path, function(error, data) {
 
-    // Save stacks and executions.
+    // Save stacks.
     stacks = data.stacks;
 
     var metricsArray = new Array();
@@ -676,7 +759,7 @@ function tracecompare(path) {
     }
 
     // Create dummy dimensions that allow us to get all executions included
-    // in current filters.
+    // in the current filters, sorted by duration.
     for (var i = 0; i < kNumFilters; ++i)
     {
       dummyDimensions.push(filters[i].dimension(function(execution) {
@@ -698,27 +781,29 @@ function tracecompare(path) {
     });
     metricButtonsData.exit().remove();
 
-    // Create the flame graph zoom button.
-    d3.selectAll('#zoom').on('click', function() {
-      flameGraph.UpdateCounts(groupAll[0].value(),
-                              groupAll[1].value(),
-                              true);
-    });
-
-    // Resize flame graph when window is resized.
-    window.onresize = function() {
-      flameGraph.UpdateCounts(groupAll[0].value(),
-                              groupAll[1].value(),
-                              true);
-    };
-
     // Show the totals.
     d3.selectAll('#total-left').text(formatNumber(data.executions.length));
     d3.selectAll('#total-right').text(formatNumber(data.executions.length));
 
     // Create the flame graph.
     flameGraph = FlameGraph(
-        data.stacks, dummyDimensions[0], CreateStackDimension);
+        data.stacks, dummyDimensions[0], ClickStackCallback);
+
+      // Create the flame graph zoom button.
+    d3.selectAll('#zoom').on('click', function() {
+      flameGraph.UpdateCounts(groupAll[1].value(), true);
+    });
+
+    // Create the unfocus button.
+    d3.selectAll('#unfocus').on('click', function() {
+      flameGraph.Unfocus();
+      d3.selectAll('#unfocus').style('display', 'none');
+    });
+
+    // Resize flame graph when window is resized.
+    window.onresize = function() {
+      flameGraph.UpdateCounts(groupAll[1].value(), true);
+    };
 
     // Create the table.
     table = d3.selectAll('#executions-table').data([function(tbody) {
@@ -767,6 +852,10 @@ function tracecompare(path) {
   }
 
   // Return the function that computes the group for a metric value.
+  // @param bucketSize Size of the buckets.
+  // @param scaleName 'log' or 'linear'
+  // @param scale The d3 scale.
+  // @returns the function that computes the group for a metric value.
   function GetGroupFunction(bucketSize, scaleName, scale)
   {
     if (scaleName == 'linear')
@@ -875,22 +964,12 @@ function tracecompare(path) {
       groups[i][dimensionId] = group;
     }
 
-    dimensionNames[dimensionId] =
-        ElideString(stacks[stackId].f, kChartTitleMaxLength);
+    dimensionNames[dimensionId] = stacks[stackId].f;
 
     // Create the charts.
     CreateCharts(dimensionId, scaleName, scale);
 
     return dimensionId;
-  }
-
-  // Called when the selection of a bar chart changes.
-  // Updates the colors of the stacks.
-  function BarChartSelectionChanged()
-  {
-    flameGraph.UpdateColors(groupAll[0].value(),
-                            groupAll[1].value(),
-                            dummyDimensions[0].top(Infinity));
   }
 
   // Creates charts for the specified dimension.
@@ -918,10 +997,11 @@ function tracecompare(path) {
     chartsDict[dimensionId] = {
       id: dimensionId,
       name: name,
-      charts: dimensionCharts
+      charts: dimensionCharts,
+      scaleName: scaleName,
     };
 
-    ShowCharts(chartsDict, scaleName);
+    ShowCharts(chartsDict);
   }
 
   // Removes a dimension.
@@ -956,6 +1036,30 @@ function tracecompare(path) {
     ShowCharts(chartsDict);
   }
 
+  // Called when the selection of a bar chart changes.
+  // Updates the colors of the stacks.
+  function BarChartSelectionChanged()
+  {
+    flameGraph.UpdateColors(groupAll[0].value(),
+                            groupAll[1].value(),
+                            dummyDimensions[0].top(Infinity));
+  }
+
+  // Called when the user clicks on a stack in the flame graph.
+  // @param stackId The identifier of the clicked stack.
+  function ClickStackCallback(stackId)
+  {
+    d3.selectAll('#selected-function').style('display', null);
+    d3.selectAll('#selected-function-name').text(stacks[stackId].f);
+    d3.selectAll('#selected-function-filter').on('click', function() {
+      CreateStackDimension(stackId, 'linear');
+    });
+    d3.selectAll('#selected-function-focus').on('click', function() {
+      flameGraph.FocusOnStack(stackId);
+      d3.selectAll('#unfocus').style('display', null);
+    });
+  }
+
   // Renders the specified chart.
   function Render(method)
   {
@@ -969,9 +1073,7 @@ function tracecompare(path) {
     d3.selectAll('div.chart').each(Render);
 
     // Render flame graph.
-    flameGraph.UpdateCounts(groupAll[0].value(),
-                            groupAll[1].value(),
-                            false);
+    flameGraph.UpdateCounts(groupAll[1].value(), false);
 
     // Render table.
     table.each(Render);
@@ -983,8 +1085,7 @@ function tracecompare(path) {
 
   // Inserts in the page the charts from the provided dictionary.
   // @param charts Dictionary of charts.
-  // @param scaleName 'linear' or 'log'.
-  function ShowCharts(charts, scaleName)
+  function ShowCharts(charts)
   {
     var chartsArray = new Array();
     ForEachProperty(charts, function(chartKey, chart) { chartsArray.push(chart); });
@@ -996,24 +1097,26 @@ function tracecompare(path) {
       .append('div')
       .attr('class', 'chart-container');
 
-    // Create title.
+    // Create titles.
     var title = chartContainersEnter.append('div').attr('class', 'chart-title');
-    title.append('span').text(function(chart) { return chart.name; });
+    title.append('span').text(function(chart) {
+      return ElideString(chart.name, kChartTitleMaxLength);
+    });
     title.append('a')
       .text('Remove')
-      .attr('href', '#')
+      .attr('href', 'javascript:void(0)')
       .on('click', function(chart) { RemoveDimension(chart.id); });
     title.append('a')
-      .text(function() {
-        if (scaleName == 'log')
+      .text(function(chart) {
+        if (chart.scaleName == 'log')
           return 'Linear';
         else
           return 'Log';
       })
-      .attr('href', '#')
+      .attr('href', 'javascript:void(0)')
       .on('click', function(chart) {
         RemoveDimension(chart.id);
-        if (scaleName == 'linear')
+        if (chart.scaleName == 'linear')
         {
           if (typeof(chart.id) == "string")
             CreateMetricDimension(chart.id, 'log');
@@ -1105,7 +1208,7 @@ function ElideString(str, numChar)
     return str;
 
   if (numChar <= 1)
-    return '';
+    return str.substr(0, 1);
   if (numChar == 2)
     return str.substr(0, 1) + '.';
 
