@@ -1,0 +1,171 @@
+body {
+  font-family: 'Roboto', arial, sans-serif;
+}
+a {
+  color: blue;
+}
+
+/* Metric selector */
+#metric-selector {
+  list-style-type: none;
+  margin: 0;
+  padding: 10px;
+  height: 30px;
+}
+#metric-selector li {
+  display: inline-block;
+  padding: 5px;
+  margin-left:2px;
+  background-color: #F0F0F0;
+  border-radius: 5px;
+}
+#metric-selector li:hover {
+  cursor: pointer;
+}
+
+/* Charts headers */
+#charts-header {
+  margin: 0 0 3px 0;
+}
+#charts-header div {
+  display: inline-block;
+  background-color: #F0F0F0;
+  width: 520px;
+  padding: 10px;
+  text-align: center;
+}
+#charts-header-left {
+  margin-left: 253px;
+}
+
+/* Charts */
+.chart-container {
+  display:block;
+  margin-bottom:10px;
+}
+.chart-title {
+  vertical-align: top;
+  display: inline-block;
+  height: 150px;
+  width: 250px;
+  text-align: center;
+  background-color: #F0F0F0;
+}
+.chart-title a {
+  padding-left:5px;
+  padding-right:5px;
+}
+.chart-title span {
+  display: block;
+  margin-top:50px;
+  font-size:1.5em;
+}
+.chart {
+  vertical-align: top;
+  display: inline-block;
+  height: 150px;
+  width: 520px;
+  margin: 0 0 0 3px;
+  padding: 0 0 0 20px;
+}
+.background.bar {
+  fill: #ccc;
+}
+.foreground.bar {
+  fill: steelblue;
+}
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+.axis text {
+  font: 10px sans-serif;
+}
+.brush rect.extent {
+  fill: steelblue;
+  fill-opacity: .125;
+}
+.brush .resize path {
+  fill: #eee;
+  stroke: #666;
+}
+
+/* Flame graph */
+svg#flamegraph {
+  margin-top:15px;
+  width: 100%;
+  font-size: 0.9em;
+}
+
+svg#flamegraph g.inv {
+  display:none;
+}
+
+svg#flamegraph rect {
+  fill: #EEEEEE;
+  stroke: #D6D6D6;
+}
+
+/* Selected function */
+#selected-function
+{
+  border: 1px solid #D6D6D6;
+  border-radius: 2px;
+  padding: 0.5em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+#selected-function #selected-function-name
+{
+  display:block;
+  margin-right:100px;
+}
+
+#selected-function #selected-function-links
+{
+  position:absolute;
+  right: 20px;
+}
+
+/* Table */
+table {
+  margin-top: 2em;
+  margin-bottom:2em;
+  border-collapse: collapse;
+  border-spacing: 0;
+  min-width: 800px;
+}
+
+table th {
+  text-align: left;
+}
+
+table th, table td {
+  padding: 0.3em;
+}
+
+table tr {
+  border-bottom: 1px solid #D6D6D6;
+}
+
+/* Small screens */
+@media (max-width: 1355px) {
+
+.chart-title {
+  width: 160px;
+  text-align: center;
+  background-color: #F0F0F0;
+}
+.chart-title span {
+  display: block;
+  margin-top:50px;
+  font-size:1em;
+}
+
+#charts-header-left {
+  margin-left: 163px;
+}
+
+}
