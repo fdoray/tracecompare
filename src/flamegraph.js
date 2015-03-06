@@ -106,14 +106,16 @@ function FlameGraph(stacks, leftDimension, clickStackCallback)
       .attr('rx', kCornerRadius)
       .attr('ry', kCornerRadius)
       .on('click', function(stack) {
-        clickStackCallback(stack.id);
+        yoda = rightCountsBackup;
+        clickStackCallback(stack.id, rightCountsBackup.samples[stack.id]);
       });
     gEnter.append('text')
       .text(function(stack) {
         return stack.f;
       })
       .on('click', function(stack) {
-        clickStackCallback(stack.id);
+        yoda = rightCountsBackup;
+        clickStackCallback(stack.id, rightCountsBackup.samples[stack.id]);
       });
 
     // Compute the text length of each stack.

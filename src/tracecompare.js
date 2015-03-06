@@ -459,10 +459,12 @@ function tracecompare(path) {
 
   // Called when the user clicks on a stack in the flame graph.
   // @param stackId The identifier of the clicked stack.
-  function ClickStackCallback(stackId)
+  // @param duration The duration of this callstack.
+  function ClickStackCallback(stackId, duration)
   {
     d3.selectAll('#selected-function').style('display', null);
-    d3.selectAll('#selected-function-name').text(stacks[stackId].f);
+    d3.selectAll('#selected-function-name').text(
+      stacks[stackId].f + ' - ' + duration + ' μs');
     d3.selectAll('#selected-function-filter').on('click', function() {
       CreateStackDimension(stackId, 'linear');
     });

@@ -265,14 +265,16 @@ function FlameGraph(stacks, leftDimension, clickStackCallback)
       .attr('rx', kCornerRadius)
       .attr('ry', kCornerRadius)
       .on('click', function(stack) {
-        clickStackCallback(stack.id);
+        yoda = rightCountsBackup;
+        clickStackCallback(stack.id, rightCountsBackup.samples[stack.id]);
       });
     gEnter.append('text')
       .text(function(stack) {
         return stack.f;
       })
       .on('click', function(stack) {
-        clickStackCallback(stack.id);
+        yoda = rightCountsBackup;
+        clickStackCallback(stack.id, rightCountsBackup.samples[stack.id]);
       });
 
     // Compute the text length of each stack.
@@ -1047,10 +1049,12 @@ function tracecompare(path) {
 
   // Called when the user clicks on a stack in the flame graph.
   // @param stackId The identifier of the clicked stack.
-  function ClickStackCallback(stackId)
+  // @param duration The duration of this callstack.
+  function ClickStackCallback(stackId, duration)
   {
     d3.selectAll('#selected-function').style('display', null);
-    d3.selectAll('#selected-function-name').text(stacks[stackId].f);
+    d3.selectAll('#selected-function-name').text(
+      stacks[stackId].f + ' - ' + duration + ' μs');
     d3.selectAll('#selected-function-filter').on('click', function() {
       CreateStackDimension(stackId, 'linear');
     });
