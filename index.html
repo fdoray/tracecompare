@@ -27,9 +27,29 @@
 <svg id="flamegraph">
 </svg>
 
-<div>
-  <a id="zoom" href="#">Zoom</a>
+<div id="selected-function" style="display:none;">
+  <span id="selected-function-links">
+    <a id="selected-function-focus" href="javascript:void(0)">Focus</a>
+    <a id="selected-function-filter" href="javascript:void(0)">Filter</a>
+  </span>
+  <span id="selected-function-name">&nbsp;</span>
 </div>
+
+<div>
+  <a id="zoom" href="javascript:void(0)">Zoom</a>
+  <a id="unfocus" href="javascript:void(0)" style="display:none;">Unfocus</a>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Duration</th>
+    </tr>
+  </thead>
+  <tbody id="executions-table">
+  </tbody>
+</table>
 
 <script src="contrib/crossfilter/crossfilter.v1.js"></script>
 <script src="contrib/d3/d3.js"></script>
