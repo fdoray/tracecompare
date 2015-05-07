@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Trace Compare</title>
+<link href='http://fonts.googleapis.com/css?family=Roboto' rel='stylesheet' type='text/css'>
+<link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+
+<body>
+
+<ul id="metric-selector">
+</ul>
+
+<div id="charts-header">
+  <div id="charts-header-left">
+    Group A: <span id="active-left">-</span> of <span id="total-left">-</span> executions selected.
+  </div>
+  <div id="charts-header-right">
+    Group B: <span id="active-right">-</span> of <span id="total-right">-</span> executions selected.
+  </div>
+</div>
+
+<div id="charts">
+</div>
+
+<svg id="flamegraph">
+</svg>
+
+<div id="selected-function" style="display:none;">
+  <span id="selected-function-links">
+    <a id="selected-function-focus" href="javascript:void(0)">Focus</a>
+    <a id="selected-function-filter" href="javascript:void(0)">Filter</a>
+  </span>
+  <span id="selected-function-name">&nbsp;</span>
+</div>
+
+<div>
+  <a id="zoom" href="javascript:void(0)">Zoom</a>
+  <a id="unfocus" href="javascript:void(0)" style="display:none;">Unfocus</a>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Duration</th>
+    </tr>
+  </thead>
+  <tbody id="executions-table">
+  </tbody>
+</table>
+
+<script src="contrib/crossfilter/crossfilter.v1.js"></script>
+<script src="contrib/d3/d3.js"></script>
+<script src="tracecompare.js"></script>
+<script>
+
+// From http://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript
+function getParameterByName(name) {
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
+    var results = regex.exec(location.search);
+    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+}
+
+var data = getParameterByName("data");
+if (data.length == 0)
+{
+	alert("No data specified in the URL.");
+}
+else
+{
+	compare = tracecompare("data/" + data + ".json");
+}
+</script>
+
+</body>
+
+</html>
